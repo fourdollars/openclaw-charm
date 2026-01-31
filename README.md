@@ -41,7 +41,8 @@ juju deploy openclaw
 
 # Configure with your AI provider
 juju config openclaw \
-  anthropic-api-key="sk-ant-xxx" \
+  ai-provider="anthropic" \
+  api-key="sk-ant-xxx" \
   ai-model="claude-opus-4-5"
 
 # Wait for deployment
@@ -63,7 +64,7 @@ Access the OpenClaw Gateway at `http://<unit-ip>:18789`
 ```bash
 juju config openclaw \
   ai-provider="anthropic" \
-  anthropic-api-key="sk-ant-xxx" \
+  api-key="sk-ant-xxx" \
   ai-model="claude-opus-4-5"
 ```
 
@@ -71,8 +72,16 @@ juju config openclaw \
 ```bash
 juju config openclaw \
   ai-provider="openai" \
-  openai-api-key="sk-xxx" \
+  api-key="sk-xxx" \
   ai-model="gpt-4"
+```
+
+**Google Gemini**
+```bash
+juju config openclaw \
+  ai-provider="google" \
+  api-key="YOUR-GEMINI-API-KEY" \
+  ai-model="gemini-2.0-flash"
 ```
 
 **Local Models (Ollama)**
@@ -87,23 +96,23 @@ juju config openclaw \
 **Enable Telegram**
 ```bash
 juju config openclaw \
-  enable-telegram=true \
-  telegram-bot-token="123456:ABC-DEF"
+  messenger="telegram" \
+  bot-token="123456:ABC-DEF"
 ```
 
 **Enable Discord**
 ```bash
 juju config openclaw \
-  enable-discord=true \
-  discord-bot-token="YOUR.DISCORD.TOKEN"
+  messenger="discord" \
+  bot-token="YOUR.DISCORD.TOKEN"
 ```
 
 **Enable Slack**
 ```bash
 juju config openclaw \
-  enable-slack=true \
-  slack-bot-token="xoxb-xxx" \
-  slack-app-token="xapp-xxx"
+  messenger="slack" \
+  bot-token="xoxb-xxx" \
+  app-token="xapp-xxx"
 ```
 
 ### Security Configuration
@@ -140,22 +149,17 @@ juju config openclaw log-level="debug"
 |--------|------|---------|-------------|
 | `gateway-port` | int | 18789 | Gateway WebSocket/HTTP port |
 | `gateway-bind` | string | loopback | Bind mode: loopback, lan, or IP |
-| `node-version` | string | 22 | Node.js major version (min 22) |
-| `ai-provider` | string | anthropic | AI provider: anthropic, openai, bedrock, ollama |
-| `ai-model` | string | claude-opus-4-5 | AI model name |
-| `anthropic-api-key` | string | - | Anthropic API key |
-| `openai-api-key` | string | - | OpenAI API key |
-| `enable-telegram` | boolean | false | Enable Telegram integration |
-| `telegram-bot-token` | string | - | Telegram bot token |
-| `enable-discord` | boolean | false | Enable Discord integration |
-| `discord-bot-token` | string | - | Discord bot token |
-| `enable-slack` | boolean | false | Enable Slack integration |
-| `slack-bot-token` | string | - | Slack bot token |
-| `slack-app-token` | string | - | Slack app token |
+| `node-version` | string | 24 | Node.js major version (min 22) |
+| `ai-provider` | string | - | AI provider: anthropic, openai, google, bedrock, ollama |
+| `ai-model` | string | - | AI model name |
+| `api-key` | string | - | API key for selected provider |
+| `messenger` | string | - | Messaging platform: telegram, discord, slack |
+| `bot-token` | string | - | Bot token for selected messenger |
+| `app-token` | string | - | Slack app token (required for Slack) |
 | `dm-policy` | string | pairing | DM policy: pairing, open, closed |
 | `sandbox-mode` | string | non-main | Sandbox: all, non-main, none |
 | `install-method` | string | npm | Install method: npm, pnpm, bun, source |
-| `openclaw-version` | string | latest | Version to install |
+| `version` | string | latest | Version to install |
 | `auto-update` | boolean | false | Auto-update on charm upgrade |
 | `enable-browser-tool` | boolean | true | Enable Playwright browser |
 | `log-level` | string | info | Log level: debug, info, warn, error |
@@ -194,13 +198,13 @@ juju config openclaw install-method="pnpm"
 ```bash
 juju config openclaw \
   install-method="source" \
-  openclaw-version="main"
+  version="main"
 ```
 
 **Pin to specific version**
 ```bash
 juju config openclaw \
-  openclaw-version="2026.1.29"
+  version="2026.1.29"
 ```
 
 **Enable auto-updates**

@@ -13,69 +13,49 @@ options:
   
   node-version:
     type: string
-    default: "22"
+    default: "24"
     description: Node.js major version to install (minimum 22 required)
   
   ai-provider:
     type: string
-    default: anthropic
+    default: ""
     description: |
-      Primary AI model provider: 'anthropic', 'openai', 'bedrock', or 'ollama'
+      Primary AI model provider: 'anthropic', 'openai', 'google', 'bedrock', or 'ollama'
   
   ai-model:
     type: string
-    default: claude-opus-4-5
-    description: AI model to use (e.g., claude-opus-4-5, gpt-4, etc.)
+    default: ""
+    description: AI model to use (e.g., claude-opus-4-5, gpt-4, gemini-2.0-flash, etc.)
   
-  anthropic-api-key:
+  api-key:
     type: string
     default: ""
-    description: Anthropic API key for Claude models
+    description: |
+      API key for the selected AI provider (anthropic, openai, or google).
+      For Anthropic: Anthropic API key
+      For OpenAI: OpenAI API key
+      For Google: Google Gemini API key
   
-  openai-api-key:
+  messenger:
     type: string
     default: ""
-    description: OpenAI API key
+    description: |
+      Messaging platform to enable: 'telegram', 'discord', or 'slack'.
+      Leave empty to disable messaging channels.
   
-  claude-session-key:
+  bot-token:
     type: string
     default: ""
-    description: Claude AI session key (alternative to API key)
+    description: |
+      Bot token for the selected messenger platform.
+      For Telegram: Bot token from @BotFather
+      For Discord: Bot token from Discord Developer Portal
+      For Slack: Bot token (xoxb-...) from Slack App settings
   
-  enable-telegram:
-    type: boolean
-    default: false
-    description: Enable Telegram channel integration
-  
-  telegram-bot-token:
+  app-token:
     type: string
     default: ""
-    description: Telegram bot token (required if enable-telegram is true)
-  
-  enable-discord:
-    type: boolean
-    default: false
-    description: Enable Discord channel integration
-  
-  discord-bot-token:
-    type: string
-    default: ""
-    description: Discord bot token (required if enable-discord is true)
-  
-  enable-slack:
-    type: boolean
-    default: false
-    description: Enable Slack channel integration
-  
-  slack-bot-token:
-    type: string
-    default: ""
-    description: Slack bot token (required if enable-slack is true)
-  
-  slack-app-token:
-    type: string
-    default: ""
-    description: Slack app token (required if enable-slack is true)
+    description: Slack app token (xapp-...) - only required for Slack messenger
   
   dm-policy:
     type: string
@@ -98,7 +78,7 @@ options:
       Installation method: 'npm' (global npm install), 'pnpm' (uses npm), 
       'bun' (global bun install), or 'source' (build from git source)
   
-  openclaw-version:
+  version:
     type: string
     default: latest
     description: OpenClaw version to install (e.g., 'latest', '2026.1.29', or git commit)
