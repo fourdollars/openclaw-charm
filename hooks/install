@@ -12,23 +12,7 @@ log_info "Starting OpenClaw installation"
 # Set status
 status-set maintenance "Installing system dependencies"
 
-# Install runtime based on install method
-INSTALL_METHOD="$(config-get install-method)"
-
-case "$INSTALL_METHOD" in
-    npm|pnpm|source)
-        install_nodejs
-        ;;
-    bun)
-        install_bun
-        ;;
-    *)
-        log_error "Unknown install method: $INSTALL_METHOD"
-        exit 1
-        ;;
-esac
-
-# Install build dependencies
+# Install build dependencies FIRST (required by runtime installers)
 log_info "Installing system dependencies"
 apt-get update
 apt-get install -y \
@@ -48,6 +32,22 @@ if [ "$(config-get enable-browser-tool)" = "True" ]; then
     log_info "Installing Chromium for browser automation"
     apt-get install -y chromium-browser
 fi
+
+# Install runtime based on install method
+INSTALL_METHOD="$(config-get install-method)"
+
+case "$INSTALL_METHOD" in
+    npm|pnpm|source)
+        install_nodejs
+        ;;
+    bun)
+        install_bun
+        ;;
+    *)
+        log_error "Unknown install method: $INSTALL_METHOD"
+        exit 1
+        ;;
+esac
 
 # Create openclaw user
 if ! id -u openclaw >/dev/null 2>&1; then
