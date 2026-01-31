@@ -95,8 +95,8 @@ options:
     type: string
     default: npm
     description: |
-      Installation method: 'npm' (global npm install), 'pnpm' (global pnpm), 
-      or 'source' (build from git source)
+      Installation method: 'npm' (global npm install), 'pnpm' (uses npm), 
+      'bun' (global bun install), or 'source' (build from git source)
   
   openclaw-version:
     type: string

@@ -12,8 +12,21 @@ log_info "Starting OpenClaw installation"
 # Set status
 status-set maintenance "Installing system dependencies"
 
-# Install Node.js
-install_nodejs
+# Install runtime based on install method
+INSTALL_METHOD="$(config-get install-method)"
+
+case "$INSTALL_METHOD" in
+    npm|pnpm|source)
+        install_nodejs
+        ;;
+    bun)
+        install_bun
+        ;;
+    *)
+        log_error "Unknown install method: $INSTALL_METHOD"
+        exit 1
+        ;;
+esac
 
 # Install build dependencies
 log_info "Installing system dependencies"
@@ -47,7 +60,6 @@ mkdir -p /home/openclaw/.openclaw/{credentials,workspace}
 chown -R openclaw:openclaw /home/openclaw/.openclaw
 
 # Install OpenClaw based on configured method
-INSTALL_METHOD="$(config-get install-method)"
 OPENCLAW_VERSION="$(config-get openclaw-version)"
 
 status-set maintenance "Installing OpenClaw ($INSTALL_METHOD)"
@@ -57,6 +69,11 @@ case "$INSTALL_METHOD" in
         log_info "Installing OpenClaw via npm (v${OPENCLAW_VERSION})"
         # Install globally to system path (npm works reliably as root)
         npm install -g "openclaw@${OPENCLAW_VERSION}"
+        ;;
+    bun)
+        log_info "Installing OpenClaw via Bun (v${OPENCLAW_VERSION})"
+        # Install globally using Bun
+        bun install -g "openclaw@${OPENCLAW_VERSION}"
         ;;
     source)
         log_info "Installing OpenClaw from source"

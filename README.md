@@ -154,7 +154,7 @@ juju config openclaw log-level="debug"
 | `slack-app-token` | string | - | Slack app token |
 | `dm-policy` | string | pairing | DM policy: pairing, open, closed |
 | `sandbox-mode` | string | non-main | Sandbox: all, non-main, none |
-| `install-method` | string | npm | Install method: npm, pnpm, source |
+| `install-method` | string | npm | Install method: npm, pnpm, bun, source |
 | `openclaw-version` | string | latest | Version to install |
 | `auto-update` | boolean | false | Auto-update on charm upgrade |
 | `enable-browser-tool` | boolean | true | Enable Playwright browser |
@@ -179,6 +179,16 @@ juju deploy openclaw openclaw-dev \
 ```
 
 ### Custom Installation
+
+**Install using Bun**
+```bash
+juju config openclaw install-method="bun"
+```
+
+**Install using pnpm**
+```bash
+juju config openclaw install-method="pnpm"
+```
 
 **Install from source**
 ```bash

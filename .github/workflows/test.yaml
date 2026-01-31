@@ -61,7 +61,7 @@ jobs:
     needs: lint
     strategy:
       matrix:
-        install-method: [npm, pnpm]
+        install-method: [npm, pnpm, bun]
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

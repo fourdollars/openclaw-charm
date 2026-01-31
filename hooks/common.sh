@@ -51,6 +51,40 @@ install_nodejs() {
     log_info "Node.js installed: $installed_version"
 }
 
+# Install Bun runtime
+install_bun() {
+    log_info "Installing Bun runtime"
+    
+    # Check if Bun is already installed
+    if command -v bun >/dev/null 2>&1; then
+        local current_version
+        current_version=$(bun --version)
+        log_info "Bun already installed: v$current_version"
+        return 0
+    fi
+    
+    # Install Bun using official installer
+    curl -fsSL https://bun.sh/install | bash
+    
+    # Add Bun to system PATH by symlinking to /usr/local/bin
+    if [ -f "$HOME/.bun/bin/bun" ]; then
+        ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun
+    else
+        log_error "Bun installation failed - binary not found"
+        exit 1
+    fi
+    
+    # Verify installation
+    if ! command -v bun >/dev/null 2>&1; then
+        log_error "Bun installation failed - command not available"
+        exit 1
+    fi
+    
+    local installed_version
+    installed_version=$(bun --version)
+    log_info "Bun installed: v$installed_version"
+}
+
 # Generate OpenClaw configuration
 generate_config() {
     local config_file="/home/openclaw/.openclaw/openclaw.json"
