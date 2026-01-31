@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       
       - name: Install dependencies
         run: |
@@ -64,7 +64,7 @@ jobs:
         install-method: [npm, pnpm]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       
       - name: Set up LXD
         uses: canonical/setup-lxd@main
@@ -178,7 +178,7 @@ jobs:
     needs: lint
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       
       - name: Set up LXD
         uses: canonical/setup-lxd@main
@@ -249,7 +249,7 @@ jobs:
     needs: lint
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       
       - name: Set up LXD
         uses: canonical/setup-lxd@main
