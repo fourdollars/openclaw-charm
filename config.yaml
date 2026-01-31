@@ -90,7 +90,7 @@ options:
   
   enable-browser-tool:
     type: boolean
-    default: true
+    default: false
     description: Enable Playwright browser automation tool
   
   log-level:
