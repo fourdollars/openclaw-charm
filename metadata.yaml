@@ -1,0 +1,37 @@
+name: openclaw
+display-name: OpenClaw
+summary: Self-hosted personal AI assistant with multi-platform messaging
+description: |
+  OpenClaw is an open-source, self-hosted personal AI assistant that runs on 
+  your own hardware and integrates with multiple messaging platforms. It acts 
+  as a persistent, 24/7 assistant accessible through WhatsApp, Telegram, Slack, 
+  Discord, and 10+ other channels.
+  
+  Key Features:
+  - Multi-platform messaging (13+ channels including WhatsApp, Telegram, Slack, Discord)
+  - Voice wake support for always-on interaction
+  - Browser automation via Playwright
+  - Cron jobs and scheduled tasks
+  - Extensible skills/plugins system
+  - Vector-based long-term memory
+  - Multi-agent architecture with isolated workspaces
+  - Local-first with full privacy control
+  
+  This charm deploys the OpenClaw Gateway service, which manages all messaging 
+  channels, agent workspaces, and provides a web-based control UI.
+
+maintainer: Shih-Yuan Lee (FourDollars) <fourdollars@gmail.com>
+tags:
+  - ai
+  - assistant
+  - messaging
+  - automation
+  - chatbot
+  - nlp
+series:
+  - noble
+subordinate: false
+provides:
+  gateway:
+    interface: http
+    description: OpenClaw Gateway HTTP/WebSocket interface

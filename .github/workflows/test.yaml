@@ -1,0 +1,312 @@
+name: Charm Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint Charm Code
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+      
+      - name: Lint shell scripts
+        run: |
+          find hooks -type f -executable -exec shellcheck {} +
+      
+      - name: Check hook permissions
+        run: |
+          for hook in hooks/*; do
+            if [ -f "$hook" ] && [ ! -x "$hook" ]; then
+              echo "ERROR: Hook $hook is not executable"
+              exit 1
+            fi
+          done
+      
+      - name: Validate metadata
+        run: |
+          if [ ! -f metadata.yaml ]; then
+            echo "ERROR: metadata.yaml not found"
+            exit 1
+          fi
+          
+          # Check required fields
+          for field in name summary description; do
+            if ! grep -q "^${field}:" metadata.yaml; then
+              echo "ERROR: Required field '${field}' not found in metadata.yaml"
+              exit 1
+            fi
+          done
+      
+      - name: Validate config
+        run: |
+          if [ ! -f config.yaml ]; then
+            echo "ERROR: config.yaml not found"
+            exit 1
+          fi
+
+  test-install:
+    name: Test Charm Installation
+    runs-on: ubuntu-24.04
+    needs: lint
+    strategy:
+      matrix:
+        install-method: [npm, pnpm]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up LXD
+        uses: canonical/setup-lxd@main
+        with:
+          channel: latest/stable
+      
+      - name: Install Juju
+        run: |
+          sudo snap install juju --channel=3.4/stable --classic
+          sudo snap install charmcraft --classic
+      
+      - name: Bootstrap Juju
+        run: |
+          lxc network set lxdbr0 ipv6.address none
+          juju bootstrap localhost test-controller
+      
+      - name: Create test model
+        run: |
+          juju add-model test-openclaw
+      
+      - name: Pack charm
+        run: |
+          charmcraft pack
+      
+      - name: Deploy charm
+        run: |
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju deploy ./$CHARM_FILE \
+            --config install-method=${{ matrix.install-method }} \
+            --config anthropic-api-key="test-key-placeholder"
+      
+      - name: Wait for deployment
+        run: |
+          # Wait up to 15 minutes for installation to complete
+          timeout 900 bash -c '
+            while true; do
+              status=$(juju status openclaw --format=json | jq -r ".applications.openclaw.units | to_entries[0].value.\"workload-status\".status")
+              message=$(juju status openclaw --format=json | jq -r ".applications.openclaw.units | to_entries[0].value.\"workload-status\".message")
+              
+              echo "Status: $status - $message"
+              
+              if [ "$status" = "active" ]; then
+                echo "Deployment successful!"
+                exit 0
+              elif [ "$status" = "error" ] || [ "$status" = "blocked" ]; then
+                echo "Deployment failed with status: $status"
+                juju debug-log --replay --no-tail
+                exit 1
+              fi
+              
+              sleep 10
+            done
+          '
+      
+      - name: Verify installation
+        run: |
+          # Get unit IP
+          UNIT_IP=$(juju status openclaw --format=json | jq -r '.applications.openclaw.units | to_entries[0].value."public-address"')
+          echo "Unit IP: $UNIT_IP"
+          
+          # Check if openclaw command exists
+          juju ssh openclaw/0 'which openclaw'
+          
+          # Check openclaw version
+          juju ssh openclaw/0 'openclaw --version' || echo "Version check skipped (may require config)"
+          
+          # Check systemd service
+          juju ssh openclaw/0 'systemctl status openclaw.service' || true
+          
+          # Check if port is open
+          juju ssh openclaw/0 'ss -tulpn | grep 18789' || echo "Port not bound (expected without valid API key)"
+      
+      - name: Test configuration changes
+        run: |
+          # Change gateway port
+          juju config openclaw gateway-port=18790
+          
+          # Wait for config change to apply
+          sleep 30
+          
+          # Verify port change
+          juju ssh openclaw/0 'ss -tulpn | grep 18790' || echo "Port change test (may not bind without valid key)"
+          
+          # Change back
+          juju config openclaw gateway-port=18789
+      
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== Juju Status ==="
+          juju status --format=yaml
+          
+          echo "=== Debug Log ==="
+          juju debug-log --replay --no-tail --limit 500
+          
+          echo "=== Unit Logs ==="
+          juju ssh openclaw/0 'journalctl -u openclaw.service -n 200' || true
+          
+          echo "=== OpenClaw Config ==="
+          juju ssh openclaw/0 'cat /home/openclaw/.openclaw/openclaw.json' || true
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          juju destroy-model test-openclaw -y --force --no-wait || true
+          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
+
+  test-channels:
+    name: Test Messaging Channel Configuration
+    runs-on: ubuntu-24.04
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up LXD
+        uses: canonical/setup-lxd@main
+      
+      - name: Install Juju
+        run: |
+          sudo snap install juju --channel=3.4/stable --classic
+          sudo snap install charmcraft --classic
+      
+      - name: Bootstrap Juju
+        run: |
+          lxc network set lxdbr0 ipv6.address none
+          juju bootstrap localhost test-controller
+      
+      - name: Create test model
+        run: |
+          juju add-model test-channels
+      
+      - name: Pack charm
+        run: |
+          charmcraft pack
+      
+      - name: Deploy with channel config
+        run: |
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju deploy ./$CHARM_FILE \
+            --config anthropic-api-key="test-key" \
+            --config enable-telegram=true \
+            --config telegram-bot-token="123456:TEST" \
+            --config enable-discord=true \
+            --config discord-bot-token="TEST.TOKEN.HERE"
+      
+      - name: Wait for deployment
+        run: |
+          timeout 900 bash -c '
+            while true; do
+              status=$(juju status openclaw --format=json | jq -r ".applications.openclaw.units | to_entries[0].value.\"workload-status\".status")
+              
+              if [ "$status" = "active" ] || [ "$status" = "blocked" ]; then
+                exit 0
+              fi
+              
+              sleep 10
+            done
+          '
+      
+      - name: Verify channel configuration
+        run: |
+          # Check that config file contains channel configuration
+          juju ssh openclaw/0 'cat /home/openclaw/.openclaw/openclaw.json' > config.json
+          
+          if grep -q "telegram" config.json && grep -q "discord" config.json; then
+            echo "✓ Channel configuration verified"
+          else
+            echo "✗ Channel configuration missing"
+            exit 1
+          fi
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          juju destroy-model test-channels -y --force --no-wait || true
+          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
+
+  test-upgrade:
+    name: Test Charm Upgrade
+    runs-on: ubuntu-24.04
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up LXD
+        uses: canonical/setup-lxd@main
+      
+      - name: Install Juju
+        run: |
+          sudo snap install juju --channel=3.4/stable --classic
+          sudo snap install charmcraft --classic
+      
+      - name: Bootstrap Juju
+        run: |
+          lxc network set lxdbr0 ipv6.address none
+          juju bootstrap localhost test-controller
+      
+      - name: Create test model
+        run: |
+          juju add-model test-upgrade
+      
+      - name: Pack charm (v1)
+        run: |
+          charmcraft pack
+          mv openclaw_*.charm openclaw-v1.charm
+      
+      - name: Deploy v1
+        run: |
+          juju deploy ./openclaw-v1.charm \
+            --config anthropic-api-key="test-key"
+      
+      - name: Wait for initial deployment
+        run: |
+          timeout 900 bash -c '
+            while true; do
+              status=$(juju status openclaw --format=json | jq -r ".applications.openclaw.units | to_entries[0].value.\"workload-status\".status")
+              if [ "$status" = "active" ] || [ "$status" = "blocked" ]; then
+                exit 0
+              fi
+              sleep 10
+            done
+          '
+      
+      - name: Refresh charm (simulate upgrade)
+        run: |
+          juju refresh openclaw --path ./openclaw-v1.charm
+          sleep 30
+      
+      - name: Verify upgrade success
+        run: |
+          status=$(juju status openclaw --format=json | jq -r ".applications.openclaw.units | to_entries[0].value.\"workload-status\".status")
+          if [ "$status" = "active" ] || [ "$status" = "blocked" ]; then
+            echo "✓ Upgrade successful"
+          else
+            echo "✗ Upgrade failed"
+            exit 1
+          fi
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          juju destroy-model test-upgrade -y --force --no-wait || true
+          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true

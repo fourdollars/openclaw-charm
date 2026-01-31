@@ -1,0 +1,57 @@
+#!/bin/bash
+set -e
+
+# OpenClaw Juju Charm - Upgrade Charm Hook
+# This hook handles charm upgrades
+
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$CHARM_DIR/hooks/common.sh"
+
+log_info "Upgrading charm"
+
+status-set maintenance "Upgrading charm"
+
+# Recreate systemd service in case it changed
+create_systemd_service
+
+# If auto-update is enabled, update OpenClaw
+if [ "$(config-get auto-update)" = "True" ]; then
+    log_info "Auto-update enabled - updating OpenClaw"
+    INSTALL_METHOD="$(config-get install-method)"
+    OPENCLAW_VERSION="$(config-get openclaw-version)"
+    
+    status-set maintenance "Updating OpenClaw"
+    
+    case "$INSTALL_METHOD" in
+        npm)
+            su - openclaw -c "npm update -g openclaw@${OPENCLAW_VERSION}"
+            ;;
+        pnpm)
+            su - openclaw -c "pnpm update -g openclaw@${OPENCLAW_VERSION}"
+            ;;
+        source)
+            su - openclaw -c "cd /home/openclaw/openclaw && git fetch && git checkout ${OPENCLAW_VERSION} && pnpm install && pnpm build"
+            ;;
+    esac
+    
+    INSTALLED_VERSION=$(su - openclaw -c "openclaw --version" 2>/dev/null || echo "unknown")
+    log_info "OpenClaw updated to version $INSTALLED_VERSION"
+fi
+
+# Regenerate configuration
+generate_config
+
+# Restart service if running
+if systemctl is-active --quiet openclaw.service; then
+    log_info "Restarting OpenClaw after upgrade"
+    if restart_openclaw; then
+        port="$(config-get gateway-port)"
+        status-set active "OpenClaw running on port $port (upgraded)"
+        log_info "Charm upgraded successfully"
+    else
+        status-set blocked "Failed to restart after upgrade"
+        exit 1
+    fi
+else
+    status-set active "Charm upgraded (service not running)"
+fi

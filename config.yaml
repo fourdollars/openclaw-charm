@@ -1,0 +1,119 @@
+options:
+  gateway-port:
+    type: int
+    default: 18789
+    description: Port for the OpenClaw Gateway WebSocket/HTTP server
+  
+  gateway-bind:
+    type: string
+    default: loopback
+    description: |
+      Gateway bind mode: 'loopback' (127.0.0.1 only), 'lan' (all interfaces), 
+      or specific IP address
+  
+  node-version:
+    type: string
+    default: "22"
+    description: Node.js major version to install (minimum 22 required)
+  
+  ai-provider:
+    type: string
+    default: anthropic
+    description: |
+      Primary AI model provider: 'anthropic', 'openai', 'bedrock', or 'ollama'
+  
+  ai-model:
+    type: string
+    default: claude-opus-4-5
+    description: AI model to use (e.g., claude-opus-4-5, gpt-4, etc.)
+  
+  anthropic-api-key:
+    type: string
+    default: ""
+    description: Anthropic API key for Claude models
+  
+  openai-api-key:
+    type: string
+    default: ""
+    description: OpenAI API key
+  
+  claude-session-key:
+    type: string
+    default: ""
+    description: Claude AI session key (alternative to API key)
+  
+  enable-telegram:
+    type: boolean
+    default: false
+    description: Enable Telegram channel integration
+  
+  telegram-bot-token:
+    type: string
+    default: ""
+    description: Telegram bot token (required if enable-telegram is true)
+  
+  enable-discord:
+    type: boolean
+    default: false
+    description: Enable Discord channel integration
+  
+  discord-bot-token:
+    type: string
+    default: ""
+    description: Discord bot token (required if enable-discord is true)
+  
+  enable-slack:
+    type: boolean
+    default: false
+    description: Enable Slack channel integration
+  
+  slack-bot-token:
+    type: string
+    default: ""
+    description: Slack bot token (required if enable-slack is true)
+  
+  slack-app-token:
+    type: string
+    default: ""
+    description: Slack app token (required if enable-slack is true)
+  
+  dm-policy:
+    type: string
+    default: pairing
+    description: |
+      DM access policy: 'pairing' (require pairing code), 'open' (auto-respond), 
+      or 'closed' (reject all DMs)
+  
+  sandbox-mode:
+    type: string
+    default: non-main
+    description: |
+      Sandbox mode for non-main sessions: 'all' (sandbox everything), 
+      'non-main' (sandbox groups/channels), or 'none' (no sandboxing)
+  
+  install-method:
+    type: string
+    default: npm
+    description: |
+      Installation method: 'npm' (global npm install), 'pnpm' (global pnpm), 
+      or 'source' (build from git source)
+  
+  openclaw-version:
+    type: string
+    default: latest
+    description: OpenClaw version to install (e.g., 'latest', '2026.1.29', or git commit)
+  
+  auto-update:
+    type: boolean
+    default: false
+    description: Automatically update OpenClaw to latest stable version on upgrade-charm
+  
+  enable-browser-tool:
+    type: boolean
+    default: true
+    description: Enable Playwright browser automation tool
+  
+  log-level:
+    type: string
+    default: info
+    description: Log level (debug, info, warn, error)

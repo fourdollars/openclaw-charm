@@ -1,0 +1,34 @@
+#!/bin/bash
+set -e
+
+# OpenClaw Juju Charm - Start Hook
+# This hook starts the OpenClaw Gateway service
+
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$CHARM_DIR/hooks/common.sh"
+
+log_info "Starting OpenClaw"
+
+status-set maintenance "Starting OpenClaw service"
+
+# Validate configuration before starting
+if ! validate_config; then
+    status-set blocked "Configuration validation failed - check logs"
+    exit 1
+fi
+
+# Generate/update configuration
+generate_config
+
+# Open required ports
+open_ports
+
+# Start the service
+if start_openclaw; then
+    port="$(config-get gateway-port)"
+    status-set active "OpenClaw running on port $port"
+    log_info "OpenClaw started successfully"
+else
+    status-set blocked "Failed to start OpenClaw - check logs"
+    exit 1
+fi

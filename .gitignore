@@ -1,0 +1,34 @@
+# Charmcraft build artifacts
+*.charm
+build/
+*.snap
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+
+# Juju
+.juju/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test artifacts
+*.log
+test-results/
+
+# Secrets
+secrets.yaml
+credentials.yaml
+*.key
+*.pem

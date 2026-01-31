@@ -1,0 +1,97 @@
+#!/bin/bash
+set -e
+
+# OpenClaw Juju Charm - Install Hook
+# This hook installs all dependencies and prepares the system for OpenClaw
+
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$CHARM_DIR/hooks/common.sh"
+
+log_info "Starting OpenClaw installation"
+
+# Set status
+status-set maintenance "Installing system dependencies"
+
+# Install Node.js
+install_nodejs
+
+# Install build dependencies
+log_info "Installing system dependencies"
+apt-get update
+apt-get install -y \
+    curl \
+    wget \
+    git \
+    build-essential \
+    python3 \
+    sqlite3 \
+    libsqlite3-dev \
+    ca-certificates \
+    gnupg
+
+# Install Chromium for browser automation if enabled
+if [ "$(config-get enable-browser-tool)" = "True" ]; then
+    log_info "Installing Chromium for browser automation"
+    apt-get install -y chromium-browser
+fi
+
+# Create openclaw user
+if ! id -u openclaw >/dev/null 2>&1; then
+    log_info "Creating openclaw system user"
+    useradd --system --shell /bin/bash --create-home openclaw
+fi
+
+# Create required directories
+log_info "Creating OpenClaw directories"
+mkdir -p /home/openclaw/.openclaw/{credentials,workspace}
+chown -R openclaw:openclaw /home/openclaw/.openclaw
+
+# Install OpenClaw based on configured method
+INSTALL_METHOD="$(config-get install-method)"
+OPENCLAW_VERSION="$(config-get openclaw-version)"
+
+status-set maintenance "Installing OpenClaw ($INSTALL_METHOD)"
+
+case "$INSTALL_METHOD" in
+    npm)
+        log_info "Installing OpenClaw via npm"
+        su - openclaw -c "npm install -g openclaw@${OPENCLAW_VERSION}"
+        ;;
+    pnpm)
+        log_info "Installing pnpm"
+        su - openclaw -c "npm install -g pnpm"
+        log_info "Installing OpenClaw via pnpm"
+        su - openclaw -c "pnpm add -g openclaw@${OPENCLAW_VERSION}"
+        ;;
+    source)
+        log_info "Installing OpenClaw from source"
+        su - openclaw -c "cd /home/openclaw && git clone https://github.com/openclaw/openclaw.git"
+        if [ "$OPENCLAW_VERSION" != "latest" ]; then
+            su - openclaw -c "cd /home/openclaw/openclaw && git checkout ${OPENCLAW_VERSION}"
+        fi
+        su - openclaw -c "cd /home/openclaw/openclaw && npm install -g pnpm && pnpm install && pnpm build"
+        # Create symlink to openclaw command
+        ln -sf /home/openclaw/openclaw/packages/cli/dist/index.js /usr/local/bin/openclaw
+        chmod +x /usr/local/bin/openclaw
+        ;;
+    *)
+        log_error "Unknown install method: $INSTALL_METHOD"
+        exit 1
+        ;;
+esac
+
+# Verify installation
+if ! su - openclaw -c "command -v openclaw" >/dev/null 2>&1; then
+    log_error "OpenClaw installation failed - command not found"
+    status-set blocked "Installation failed - openclaw command not found"
+    exit 1
+fi
+
+INSTALLED_VERSION=$(su - openclaw -c "openclaw --version" 2>/dev/null || echo "unknown")
+log_info "OpenClaw installed successfully: version $INSTALLED_VERSION"
+
+# Create systemd service
+create_systemd_service
+
+status-set active "Installation complete"
+log_info "OpenClaw installation completed successfully"
