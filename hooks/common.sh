@@ -63,6 +63,9 @@ install_bun() {
         return 0
     fi
     
+    # Set HOME for Bun installer (runs as root)
+    export HOME=/root
+    
     # Install Bun using official installer (as root, installs to /root/.bun)
     curl -fsSL https://bun.sh/install | bash
     
