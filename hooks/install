@@ -53,17 +53,10 @@ OPENCLAW_VERSION="$(config-get openclaw-version)"
 status-set maintenance "Installing OpenClaw ($INSTALL_METHOD)"
 
 case "$INSTALL_METHOD" in
-    npm)
-        log_info "Installing OpenClaw via npm"
-        # Install globally to system path
+    npm|pnpm)
+        log_info "Installing OpenClaw via npm (v${OPENCLAW_VERSION})"
+        # Install globally to system path (npm works reliably as root)
         npm install -g "openclaw@${OPENCLAW_VERSION}"
-        ;;
-    pnpm)
-        log_info "Installing pnpm"
-        npm install -g pnpm
-        log_info "Installing OpenClaw via pnpm"
-        # Install globally to system path
-        pnpm add -g "openclaw@${OPENCLAW_VERSION}"
         ;;
     source)
         log_info "Installing OpenClaw from source"
