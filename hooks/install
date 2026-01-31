@@ -40,7 +40,8 @@ apt-get install -y \
     sqlite3 \
     libsqlite3-dev \
     ca-certificates \
-    gnupg
+    gnupg \
+    unzip
 
 # Install Chromium for browser automation if enabled
 if [ "$(config-get enable-browser-tool)" = "True" ]; then

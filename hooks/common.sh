@@ -235,7 +235,6 @@ SyslogIdentifier=openclaw
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=true
 ReadWritePaths=/home/openclaw/.openclaw
 
 # Resource limits
