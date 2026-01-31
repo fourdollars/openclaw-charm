@@ -55,13 +55,15 @@ status-set maintenance "Installing OpenClaw ($INSTALL_METHOD)"
 case "$INSTALL_METHOD" in
     npm)
         log_info "Installing OpenClaw via npm"
-        su - openclaw -c "npm install -g openclaw@${OPENCLAW_VERSION}"
+        # Install globally to system path
+        npm install -g "openclaw@${OPENCLAW_VERSION}"
         ;;
     pnpm)
         log_info "Installing pnpm"
-        su - openclaw -c "npm install -g pnpm"
+        npm install -g pnpm
         log_info "Installing OpenClaw via pnpm"
-        su - openclaw -c "pnpm add -g openclaw@${OPENCLAW_VERSION}"
+        # Install globally to system path
+        pnpm add -g "openclaw@${OPENCLAW_VERSION}"
         ;;
     source)
         log_info "Installing OpenClaw from source"
@@ -81,13 +83,13 @@ case "$INSTALL_METHOD" in
 esac
 
 # Verify installation
-if ! su - openclaw -c "command -v openclaw" >/dev/null 2>&1; then
+if ! command -v openclaw >/dev/null 2>&1; then
     log_error "OpenClaw installation failed - command not found"
     status-set blocked "Installation failed - openclaw command not found"
     exit 1
 fi
 
-INSTALLED_VERSION=$(su - openclaw -c "openclaw --version" 2>/dev/null || echo "unknown")
+INSTALLED_VERSION=$(openclaw --version 2>/dev/null || echo "unknown")
 log_info "OpenClaw installed successfully: version $INSTALLED_VERSION"
 
 # Create systemd service

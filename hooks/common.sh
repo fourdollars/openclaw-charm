@@ -165,7 +165,8 @@ EOF
     fi
     
     chown openclaw:openclaw "$config_file" "$env_file"
-    chmod 600 "$config_file" "$env_file"
+    chmod 644 "$config_file"
+    chmod 600 "$env_file"
     
     log_info "Configuration generated at $config_file"
 }
