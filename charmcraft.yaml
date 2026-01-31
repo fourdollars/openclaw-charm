@@ -1,15 +1,8 @@
-name: openclaw
 type: charm
-summary: Self-hosted personal AI assistant with multi-platform messaging
-
-description: |
-  OpenClaw is an open-source, self-hosted personal AI assistant that runs on 
-  your own hardware and integrates with multiple messaging platforms. This charm 
-  deploys the OpenClaw Gateway service with full configuration support for AI 
-  providers, messaging channels, and security settings.
+base: ubuntu@24.04
 
 platforms:
-  ubuntu-24.04-amd64:
+  amd64:
 
 parts:
   charm:
