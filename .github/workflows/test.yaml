@@ -73,7 +73,7 @@ jobs:
       
       - name: Install Juju
         run: |
-          sudo snap install juju --channel=3.4/stable --classic
+          sudo snap install juju --channel=3/stable
           sudo snap install charmcraft --classic
       
       - name: Bootstrap Juju
@@ -185,7 +185,7 @@ jobs:
       
       - name: Install Juju
         run: |
-          sudo snap install juju --channel=3.4/stable --classic
+          sudo snap install juju --channel=3/stable
           sudo snap install charmcraft --classic
       
       - name: Bootstrap Juju
@@ -256,7 +256,7 @@ jobs:
       
       - name: Install Juju
         run: |
-          sudo snap install juju --channel=3.4/stable --classic
+          sudo snap install juju --channel=3/stable
           sudo snap install charmcraft --classic
       
       - name: Bootstrap Juju
