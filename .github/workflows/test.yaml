@@ -100,7 +100,7 @@ jobs:
       - name: Wait for deployment
         run: |
           # Wait up to 15 minutes for installation to complete
-          juju-wait -vw -m test-openclaw -t 900
+          juju-wait -v -m test-openclaw -t 900
       
       - name: Verify installation
         run: |
@@ -197,7 +197,7 @@ jobs:
       
       - name: Wait for deployment
         run: |
-          juju-wait -vw -m test-channels -t 900
+          juju-wait -v -m test-channels -t 900
       
       - name: Verify channel configuration
         run: |
@@ -255,7 +255,7 @@ jobs:
       
       - name: Wait for initial deployment
         run: |
-          juju-wait -vw -m test-upgrade -t 900
+          juju-wait -v -m test-upgrade -t 900
       
       - name: Refresh charm (simulate upgrade)
         run: |

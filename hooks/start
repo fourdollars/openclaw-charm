@@ -11,10 +11,9 @@ log_info "Starting OpenClaw"
 
 status-set maintenance "Starting OpenClaw service"
 
-# Validate configuration before starting
+# Validate configuration (non-blocking - will set status to blocked if issues found)
 if ! validate_config; then
-    status-set blocked "Configuration validation failed - check logs"
-    exit 1
+    log_warn "Configuration validation failed - service will start but may not be functional"
 fi
 
 # Generate/update configuration
@@ -26,8 +25,15 @@ open_ports
 # Start the service
 if start_openclaw; then
     port="$(config-get gateway-port)"
-    status-set active "OpenClaw running on port $port"
-    log_info "OpenClaw started successfully"
+    
+    # Check if configuration is valid and set appropriate status
+    if validate_config; then
+        status-set active "OpenClaw running on port $port"
+        log_info "OpenClaw started successfully with valid configuration"
+    else
+        status-set blocked "OpenClaw running but configuration incomplete (missing API keys or tokens)"
+        log_warn "OpenClaw service started but requires valid configuration"
+    fi
 else
     status-set blocked "Failed to start OpenClaw - check logs"
     exit 1
