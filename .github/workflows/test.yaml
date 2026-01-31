@@ -74,6 +74,7 @@ jobs:
       - name: Install Juju
         run: |
           sudo snap install juju --channel=3/stable
+          sudo snap install juju-wait --classic
           sudo snap install charmcraft --classic
       
       - name: Bootstrap Juju
@@ -99,25 +100,7 @@ jobs:
       - name: Wait for deployment
         run: |
           # Wait up to 15 minutes for installation to complete
-          timeout 900 bash -c '
-            while true; do
-              status=$(juju status openclaw --format=json | jq -r ".applications.openclaw.units | to_entries[0].value.\"workload-status\".status")
-              message=$(juju status openclaw --format=json | jq -r ".applications.openclaw.units | to_entries[0].value.\"workload-status\".message")
-              
-              echo "Status: $status - $message"
-              
-              if [ "$status" = "active" ]; then
-                echo "Deployment successful!"
-                exit 0
-              elif [ "$status" = "error" ] || [ "$status" = "blocked" ]; then
-                echo "Deployment failed with status: $status"
-                juju debug-log --replay --no-tail
-                exit 1
-              fi
-              
-              sleep 10
-            done
-          '
+          juju-wait -vw -m test-openclaw -t 900
       
       - name: Verify installation
         run: |
@@ -186,6 +169,7 @@ jobs:
       - name: Install Juju
         run: |
           sudo snap install juju --channel=3/stable
+          sudo snap install juju-wait --classic
           sudo snap install charmcraft --classic
       
       - name: Bootstrap Juju
@@ -213,17 +197,7 @@ jobs:
       
       - name: Wait for deployment
         run: |
-          timeout 900 bash -c '
-            while true; do
-              status=$(juju status openclaw --format=json | jq -r ".applications.openclaw.units | to_entries[0].value.\"workload-status\".status")
-              
-              if [ "$status" = "active" ] || [ "$status" = "blocked" ]; then
-                exit 0
-              fi
-              
-              sleep 10
-            done
-          '
+          juju-wait -vw -m test-channels -t 900
       
       - name: Verify channel configuration
         run: |
@@ -257,6 +231,7 @@ jobs:
       - name: Install Juju
         run: |
           sudo snap install juju --channel=3/stable
+          sudo snap install juju-wait --classic
           sudo snap install charmcraft --classic
       
       - name: Bootstrap Juju
@@ -280,15 +255,7 @@ jobs:
       
       - name: Wait for initial deployment
         run: |
-          timeout 900 bash -c '
-            while true; do
-              status=$(juju status openclaw --format=json | jq -r ".applications.openclaw.units | to_entries[0].value.\"workload-status\".status")
-              if [ "$status" = "active" ] || [ "$status" = "blocked" ]; then
-                exit 0
-              fi
-              sleep 10
-            done
-          '
+          juju-wait -vw -m test-upgrade -t 900
       
       - name: Refresh charm (simulate upgrade)
         run: |
