@@ -63,12 +63,12 @@ install_bun() {
         return 0
     fi
     
-    # Install Bun using official installer
+    # Install Bun using official installer (as root, installs to /root/.bun)
     curl -fsSL https://bun.sh/install | bash
     
     # Add Bun to system PATH by symlinking to /usr/local/bin
-    if [ -f "$HOME/.bun/bin/bun" ]; then
-        ln -sf "$HOME/.bun/bin/bun" /usr/local/bin/bun
+    if [ -f /root/.bun/bin/bun ]; then
+        ln -sf /root/.bun/bin/bun /usr/local/bin/bun
     else
         log_error "Bun installation failed - binary not found"
         exit 1
