@@ -194,7 +194,7 @@ OPENCLAW_GATEWAY_PORT=${gateway_port}
 OPENCLAW_GATEWAY_BIND=${gateway_bind}
 EOF
     
-    # Set API key based on provider
+    # Set API key based on provider (legacy environment variable support)
     if [ -n "$api_key" ]; then
         case "$ai_provider" in
             anthropic)
@@ -214,9 +214,40 @@ EOF
     chmod 600 "$config_file"
     chmod 600 "$env_file"
     
-    # Create session store directory if it doesn't exist
+    # Create agent directory structure
+    local agent_dir="/home/ubuntu/.openclaw/agents/main/agent"
     local session_dir="/home/ubuntu/.openclaw/agents/main/sessions"
-    mkdir -p "$session_dir"
+    mkdir -p "$agent_dir" "$session_dir"
+    
+    # Configure auth profiles for OpenClaw 2026.x (required for agent authentication)
+    # OpenClaw 2026.x requires API keys in auth-profiles.json, not environment variables
+    if [ -n "$api_key" ] && [ -n "$ai_provider" ]; then
+        local auth_file="$agent_dir/auth-profiles.json"
+        local profile_id="${ai_provider}:manual"
+        local created_at
+        created_at=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
+        
+        log_info "Configuring auth profile for provider: $ai_provider"
+        
+        cat > "$auth_file" <<EOF
+{
+  "profiles": [
+    {
+      "id": "$profile_id",
+      "provider": "$ai_provider",
+      "type": "api-key",
+      "apiKey": "$api_key",
+      "createdAt": "$created_at"
+    }
+  ]
+}
+EOF
+        chown ubuntu:ubuntu "$auth_file"
+        chmod 600 "$auth_file"
+        log_info "Auth profile created at $auth_file"
+    fi
+    
+    # Set proper ownership and permissions for all OpenClaw directories
     chown -R ubuntu:ubuntu /home/ubuntu/.openclaw
     chmod 700 /home/ubuntu/.openclaw
     

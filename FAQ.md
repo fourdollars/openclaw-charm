@@ -253,6 +253,65 @@ juju config openclaw \
 
 ---
 
+### Chat not responding / "No API key found for provider" error
+
+If you can access the gateway but chat messages get no response, check the logs:
+
+```bash
+juju ssh openclaw/0 'sudo journalctl -u openclaw.service -n 50 | grep -i "error\|api key"'
+```
+
+If you see:
+```
+Error: No API key found for provider "google". Auth store: ~/.openclaw/agents/main/agent/auth-profiles.json
+```
+
+**This means the AI provider authentication is not configured properly.**
+
+**Solution:**
+
+The charm should automatically configure this during deployment. If it's missing, you can manually fix it:
+
+```bash
+# Get your configured API key
+API_KEY=$(juju config openclaw api-key)
+PROVIDER=$(juju config openclaw ai-provider)
+
+# SSH into the unit and configure auth
+juju ssh openclaw/0
+
+# Create auth profile directory
+mkdir -p ~/.openclaw/agents/main/agent
+
+# Create auth-profiles.json
+cat > ~/.openclaw/agents/main/agent/auth-profiles.json <<EOF
+{
+  "profiles": [
+    {
+      "id": "${PROVIDER}:manual",
+      "provider": "${PROVIDER}",
+      "type": "api-key",
+      "apiKey": "${API_KEY}",
+      "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+    }
+  ]
+}
+EOF
+
+# Set proper permissions
+chmod 600 ~/.openclaw/agents/main/agent/auth-profiles.json
+
+# Restart service
+sudo systemctl restart openclaw.service
+
+# Verify it works
+sudo journalctl -u openclaw.service -f
+```
+
+**Note:** This issue occurs in OpenClaw 2026.x which changed authentication from environment variables to auth-profiles.json. The charm has been updated to handle this automatically for new deployments.
+
+---
+
 ### How do I check if the gateway is accessible?
 
 ```bash
