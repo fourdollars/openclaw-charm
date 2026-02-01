@@ -359,6 +359,39 @@ juju config openclaw \
 
 ---
 
+### How do I configure multiple AI models?
+
+OpenClaw Charm supports up to 11 AI models simultaneously (1 primary + 10 additional slots):
+
+```bash
+# Configure primary AI model
+juju config openclaw \
+  ai-provider="anthropic" \
+  ai-api-key="sk-ant-xxx" \
+  ai-model="claude-opus-4-5"
+
+# Add additional models in slots 0-9
+juju config openclaw \
+  ai0-provider="openai" \
+  ai0-model="gpt-4" \
+  ai0-api-key="sk-xxx"
+
+juju config openclaw \
+  ai1-provider="google" \
+  ai1-model="gemini-2.0-flash" \
+  ai1-api-key="YOUR-GEMINI-KEY"
+```
+
+**Important:** Each slot requires all three parameters (provider, model, api-key). Partial configuration will fail validation.
+
+**Verify configuration:**
+```bash
+# Check all configured models
+juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/agents/main/agent/auth-profiles.json | jq .'
+```
+
+---
+
 ## Troubleshooting
 
 ### The gateway service won't start

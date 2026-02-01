@@ -214,27 +214,64 @@ EOF
     
     # Configure auth profiles for OpenClaw 2026.x (required for agent authentication)
     # OpenClaw 2026.x requires API keys in auth-profiles.json, not environment variables
+    local auth_file="$agent_dir/auth-profiles.json"
+    local profiles_json=""
+    local profile_count=0
+    
+    # Add primary AI model profile
     if [ -n "$api_key" ] && [ -n "$ai_provider" ]; then
-        local auth_file="$agent_dir/auth-profiles.json"
         local profile_id="${ai_provider}:manual"
         
-        log_info "Configuring auth profile for provider: $ai_provider"
+        log_info "Configuring primary auth profile for provider: $ai_provider"
         
+        profiles_json="    \"$profile_id\": {
+      \"type\": \"api_key\",
+      \"provider\": \"$ai_provider\",
+      \"key\": \"$api_key\"
+    }"
+        profile_count=$((profile_count + 1))
+    fi
+    
+    # Add additional AI model profiles (ai0-ai9)
+    for i in 0 1 2 3 4 5 6 7 8 9; do
+        local slot_provider slot_model slot_api_key
+        slot_provider="$(config-get "ai${i}-provider")"
+        slot_model="$(config-get "ai${i}-model")"
+        slot_api_key="$(config-get "ai${i}-api-key")"
+        
+        if [ -n "$slot_provider" ] && [ -n "$slot_model" ] && [ -n "$slot_api_key" ]; then
+            local slot_profile_id="${slot_provider}:slot${i}"
+            
+            log_info "Configuring auth profile for slot $i: $slot_provider/$slot_model"
+            
+            # Add comma separator if not first profile
+            if [ $profile_count -gt 0 ]; then
+                profiles_json="${profiles_json},"
+            fi
+            
+            profiles_json="${profiles_json}
+    \"$slot_profile_id\": {
+      \"type\": \"api_key\",
+      \"provider\": \"$slot_provider\",
+      \"key\": \"$slot_api_key\"
+    }"
+            profile_count=$((profile_count + 1))
+        fi
+    done
+    
+    # Write auth-profiles.json if we have any profiles
+    if [ $profile_count -gt 0 ]; then
         cat > "$auth_file" <<EOF
 {
   "version": 1,
   "profiles": {
-    "$profile_id": {
-      "type": "api_key",
-      "provider": "$ai_provider",
-      "key": "$api_key"
-    }
+$profiles_json
   }
 }
 EOF
         chown ubuntu:ubuntu "$auth_file"
         chmod 600 "$auth_file"
-        log_info "Auth profile created at $auth_file"
+        log_info "Auth profile created at $auth_file with $profile_count profile(s)"
     fi
     
     # Set proper ownership and permissions for all OpenClaw directories
@@ -383,6 +420,49 @@ validate_config() {
         log_error "ai-model must be configured (e.g., claude-opus-4-5, gpt-4, gemini-2.0-flash)"
         errors=$((errors + 1))
     fi
+    
+    # Validate additional AI model slots (ai0-ai9)
+    for i in 0 1 2 3 4 5 6 7 8 9; do
+        local slot_provider slot_model slot_api_key
+        slot_provider="$(config-get "ai${i}-provider")"
+        slot_model="$(config-get "ai${i}-model")"
+        slot_api_key="$(config-get "ai${i}-api-key")"
+        
+        # If any ai slot config is provided, validate completeness
+        if [ -n "$slot_provider" ] || [ -n "$slot_model" ] || [ -n "$slot_api_key" ]; then
+            if [ -z "$slot_provider" ]; then
+                log_error "AI slot $i: provider configured but missing ai${i}-provider"
+                errors=$((errors + 1))
+            fi
+            
+            if [ -z "$slot_model" ]; then
+                log_error "AI slot $i: model configured but missing ai${i}-model"
+                errors=$((errors + 1))
+            fi
+            
+            # Validate API key requirement for non-ollama/bedrock providers
+            if [ -n "$slot_provider" ]; then
+                case "$slot_provider" in
+                    anthropic|openai|google)
+                        if [ -z "$slot_api_key" ]; then
+                            log_error "AI slot $i: $slot_provider provider requires ai${i}-api-key"
+                            errors=$((errors + 1))
+                        fi
+                        ;;
+                    ollama)
+                        log_info "AI slot $i: Ollama provider selected"
+                        ;;
+                    bedrock)
+                        log_info "AI slot $i: AWS Bedrock provider selected"
+                        ;;
+                    *)
+                        log_error "AI slot $i: Invalid provider $slot_provider"
+                        errors=$((errors + 1))
+                        ;;
+                esac
+            fi
+        fi
+    done
     
     local slack_bot_token slack_app_token
     slack_bot_token="$(config-get slack-bot-token)"

@@ -503,10 +503,19 @@
 juju deploy openclaw
 
 # Configure with your AI provider
-juju config openclaw anthropic-api-key="your-key-here"
+juju config openclaw \
+  ai-provider="anthropic" \
+  ai-api-key="your-key-here" \
+  ai-model="claude-opus-4-5"
 
 # Enable messaging platforms
-juju config openclaw telegram-bot-token="your-token"</code></pre>
+juju config openclaw telegram-bot-token="your-token"
+
+# Optional: Configure additional AI models (up to 11 total)
+juju config openclaw \
+  ai0-provider="openai" \
+  ai0-model="gpt-4" \
+  ai0-api-key="your-openai-key"</code></pre>
                 </div>
             </div>
         </section>
@@ -532,7 +541,7 @@ juju config openclaw telegram-bot-token="your-token"</code></pre>
                     <div class="feature-card">
                         <div class="feature-icon">🤖</div>
                         <h3>AI Provider Flexibility</h3>
-                        <p>Works with Anthropic Claude, OpenAI, AWS Bedrock, or local models via Ollama.</p>
+                        <p>Configure up to 11 AI models simultaneously. Works with Anthropic Claude, OpenAI, Google Gemini, AWS Bedrock, or local models via Ollama.</p>
                     </div>
                     
                     <div class="feature-card">
@@ -593,8 +602,8 @@ juju config openclaw telegram-bot-token="your-token"</code></pre>
                         <div class="step-number">2</div>
                         <div class="step-content">
                             <h3>Configure AI Provider</h3>
-                            <p>Set up your AI model credentials (Anthropic, OpenAI, etc.)</p>
-                            <code>juju config openclaw \<br>  anthropic-api-key="sk-ant-xxx" \<br>  ai-model="claude-opus-4-5"</code>
+                            <p>Set up your AI model credentials (Anthropic, OpenAI, Google, etc.)</p>
+                            <code>juju config openclaw \<br>  ai-provider="anthropic" \<br>  ai-api-key="sk-ant-xxx" \<br>  ai-model="claude-opus-4-5"</code>
                         </div>
                     </div>
                     
@@ -630,19 +639,27 @@ juju config openclaw telegram-bot-token="your-token"</code></pre>
                         <dl>
                             <div class="config-option">
                                 <dt>ai-provider</dt>
-                                <dd>Primary AI provider: anthropic, openai, bedrock, ollama</dd>
+                                <dd>Primary AI provider: anthropic, openai, google, bedrock, ollama</dd>
                             </div>
                             <div class="config-option">
                                 <dt>ai-model</dt>
                                 <dd>Model to use (e.g., claude-opus-4-5, gpt-4)</dd>
                             </div>
                             <div class="config-option">
-                                <dt>anthropic-api-key</dt>
-                                <dd>Anthropic API key for Claude models</dd>
+                                <dt>ai-api-key</dt>
+                                <dd>API key for the selected AI provider</dd>
                             </div>
                             <div class="config-option">
-                                <dt>openai-api-key</dt>
-                                <dd>OpenAI API key</dd>
+                                <dt>ai[0-9]-provider</dt>
+                                <dd>Additional AI provider slots (0-9) for multi-model support</dd>
+                            </div>
+                            <div class="config-option">
+                                <dt>ai[0-9]-model</dt>
+                                <dd>Model name for additional AI slots (0-9)</dd>
+                            </div>
+                            <div class="config-option">
+                                <dt>ai[0-9]-api-key</dt>
+                                <dd>API key for additional AI slots (0-9)</dd>
                             </div>
                         </dl>
                     </div>

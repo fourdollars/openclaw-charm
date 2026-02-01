@@ -115,6 +115,50 @@ juju config openclaw \
   ai-model="llama3"
 ```
 
+### Multi-AI Model Support
+
+OpenClaw Charm supports configuring up to 11 AI models simultaneously (1 primary + 10 additional slots). This enables model switching, fallback, and specialized model usage for different tasks.
+
+**Configure Additional AI Models**
+```bash
+# Configure primary AI model
+juju config openclaw \
+  ai-provider="anthropic" \
+  ai-api-key="sk-ant-xxx" \
+  ai-model="claude-opus-4-5"
+
+# Add additional models in slots 0-9
+juju config openclaw \
+  ai0-provider="openai" \
+  ai0-model="gpt-4" \
+  ai0-api-key="sk-xxx"
+
+juju config openclaw \
+  ai1-provider="google" \
+  ai1-model="gemini-2.0-flash" \
+  ai1-api-key="YOUR-GEMINI-API-KEY"
+
+juju config openclaw \
+  ai2-provider="anthropic" \
+  ai2-model="claude-sonnet-4" \
+  ai2-api-key="sk-ant-yyy"
+```
+
+**All AI Slots**
+- Primary: `ai-provider`, `ai-model`, `ai-api-key`
+- Slot 0: `ai0-provider`, `ai0-model`, `ai0-api-key`
+- Slot 1: `ai1-provider`, `ai1-model`, `ai1-api-key`
+- Slot 2: `ai2-provider`, `ai2-model`, `ai2-api-key`
+- Slot 3: `ai3-provider`, `ai3-model`, `ai3-api-key`
+- Slot 4: `ai4-provider`, `ai4-model`, `ai4-api-key`
+- Slot 5: `ai5-provider`, `ai5-model`, `ai5-api-key`
+- Slot 6: `ai6-provider`, `ai6-model`, `ai6-api-key`
+- Slot 7: `ai7-provider`, `ai7-model`, `ai7-api-key`
+- Slot 8: `ai8-provider`, `ai8-model`, `ai8-api-key`
+- Slot 9: `ai9-provider`, `ai9-model`, `ai9-api-key`
+
+Each slot requires all three parameters (provider, model, api-key) to be configured. Partially configured slots will trigger validation errors.
+
 ### Messaging Channels
 
 **Enable Telegram**
@@ -181,6 +225,9 @@ juju config openclaw log-level="debug"
 | `ai-provider` | string | - | AI provider: anthropic, openai, google, bedrock, ollama |
 | `ai-model` | string | - | AI model name |
 | `ai-api-key` | string | - | API key for selected provider |
+| `ai0-provider` ... `ai9-provider` | string | - | Additional AI provider slots (0-9) |
+| `ai0-model` ... `ai9-model` | string | - | Additional AI model name slots (0-9) |
+| `ai0-api-key` ... `ai9-api-key` | string | - | Additional AI API key slots (0-9) |
 | `telegram-bot-token` | string | - | Telegram bot token from @BotFather |
 | `discord-bot-token` | string | - | Discord bot token |
 | `slack-bot-token` | string | - | Slack bot token (xoxb-...) |

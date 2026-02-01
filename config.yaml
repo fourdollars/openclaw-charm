@@ -36,6 +36,157 @@ options:
       For OpenAI: OpenAI API key
       For Google: Google Gemini API key
   
+  # Additional AI models (ai0 through ai9) for multi-model support
+  ai0-provider:
+    type: string
+    default: ""
+    description: AI provider for model slot 0 (anthropic, openai, google, bedrock, ollama)
+  
+  ai0-model:
+    type: string
+    default: ""
+    description: AI model name for slot 0
+  
+  ai0-api-key:
+    type: string
+    default: ""
+    description: API key for AI model slot 0
+  
+  ai1-provider:
+    type: string
+    default: ""
+    description: AI provider for model slot 1 (anthropic, openai, google, bedrock, ollama)
+  
+  ai1-model:
+    type: string
+    default: ""
+    description: AI model name for slot 1
+  
+  ai1-api-key:
+    type: string
+    default: ""
+    description: API key for AI model slot 1
+  
+  ai2-provider:
+    type: string
+    default: ""
+    description: AI provider for model slot 2 (anthropic, openai, google, bedrock, ollama)
+  
+  ai2-model:
+    type: string
+    default: ""
+    description: AI model name for slot 2
+  
+  ai2-api-key:
+    type: string
+    default: ""
+    description: API key for AI model slot 2
+  
+  ai3-provider:
+    type: string
+    default: ""
+    description: AI provider for model slot 3 (anthropic, openai, google, bedrock, ollama)
+  
+  ai3-model:
+    type: string
+    default: ""
+    description: AI model name for slot 3
+  
+  ai3-api-key:
+    type: string
+    default: ""
+    description: API key for AI model slot 3
+  
+  ai4-provider:
+    type: string
+    default: ""
+    description: AI provider for model slot 4 (anthropic, openai, google, bedrock, ollama)
+  
+  ai4-model:
+    type: string
+    default: ""
+    description: AI model name for slot 4
+  
+  ai4-api-key:
+    type: string
+    default: ""
+    description: API key for AI model slot 4
+  
+  ai5-provider:
+    type: string
+    default: ""
+    description: AI provider for model slot 5 (anthropic, openai, google, bedrock, ollama)
+  
+  ai5-model:
+    type: string
+    default: ""
+    description: AI model name for slot 5
+  
+  ai5-api-key:
+    type: string
+    default: ""
+    description: API key for AI model slot 5
+  
+  ai6-provider:
+    type: string
+    default: ""
+    description: AI provider for model slot 6 (anthropic, openai, google, bedrock, ollama)
+  
+  ai6-model:
+    type: string
+    default: ""
+    description: AI model name for slot 6
+  
+  ai6-api-key:
+    type: string
+    default: ""
+    description: API key for AI model slot 6
+  
+  ai7-provider:
+    type: string
+    default: ""
+    description: AI provider for model slot 7 (anthropic, openai, google, bedrock, ollama)
+  
+  ai7-model:
+    type: string
+    default: ""
+    description: AI model name for slot 7
+  
+  ai7-api-key:
+    type: string
+    default: ""
+    description: API key for AI model slot 7
+  
+  ai8-provider:
+    type: string
+    default: ""
+    description: AI provider for model slot 8 (anthropic, openai, google, bedrock, ollama)
+  
+  ai8-model:
+    type: string
+    default: ""
+    description: AI model name for slot 8
+  
+  ai8-api-key:
+    type: string
+    default: ""
+    description: API key for AI model slot 8
+  
+  ai9-provider:
+    type: string
+    default: ""
+    description: AI provider for model slot 9 (anthropic, openai, google, bedrock, ollama)
+  
+  ai9-model:
+    type: string
+    default: ""
+    description: AI model name for slot 9
+  
+  ai9-api-key:
+    type: string
+    default: ""
+    description: API key for AI model slot 9
+  
   telegram-bot-token:
     type: string
     default: ""
