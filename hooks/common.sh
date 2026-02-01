@@ -224,22 +224,19 @@ EOF
     if [ -n "$api_key" ] && [ -n "$ai_provider" ]; then
         local auth_file="$agent_dir/auth-profiles.json"
         local profile_id="${ai_provider}:manual"
-        local created_at
-        created_at=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
         
         log_info "Configuring auth profile for provider: $ai_provider"
         
         cat > "$auth_file" <<EOF
 {
-  "profiles": [
-    {
-      "id": "$profile_id",
+  "version": 1,
+  "profiles": {
+    "$profile_id": {
+      "type": "api_key",
       "provider": "$ai_provider",
-      "type": "api-key",
-      "apiKey": "$api_key",
-      "createdAt": "$created_at"
+      "key": "$api_key"
     }
-  ]
+  }
 }
 EOF
         chown ubuntu:ubuntu "$auth_file"

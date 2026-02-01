@@ -286,15 +286,14 @@ mkdir -p ~/.openclaw/agents/main/agent
 # Create auth-profiles.json
 cat > ~/.openclaw/agents/main/agent/auth-profiles.json <<EOF
 {
-  "profiles": [
-    {
-      "id": "${PROVIDER}:manual",
+  "version": 1,
+  "profiles": {
+    "${PROVIDER}:manual": {
+      "type": "api_key",
       "provider": "${PROVIDER}",
-      "type": "api-key",
-      "apiKey": "${API_KEY}",
-      "createdAt": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+      "key": "${API_KEY}"
     }
-  ]
+  }
 }
 EOF
 
