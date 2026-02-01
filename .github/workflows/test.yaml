@@ -95,7 +95,8 @@ jobs:
           CHARM_FILE=$(ls openclaw_*.charm | head -1)
           juju deploy ./$CHARM_FILE \
             --config install-method=${{ matrix.install-method }} \
-            --config anthropic-api-key="test-key-placeholder"
+            --config ai-provider="anthropic" \
+            --config api-key="test-key-placeholder"
       
       - name: Wait for deployment
         run: |
@@ -147,7 +148,7 @@ jobs:
           juju ssh openclaw/0 'journalctl -u openclaw.service -n 200' || true
           
           echo "=== OpenClaw Config ==="
-          juju ssh openclaw/0 'cat /home/openclaw/.openclaw/openclaw.json' || true
+          juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' || true
       
       - name: Cleanup
         if: always()
@@ -189,11 +190,10 @@ jobs:
         run: |
           CHARM_FILE=$(ls openclaw_*.charm | head -1)
           juju deploy ./$CHARM_FILE \
-            --config anthropic-api-key="test-key" \
-            --config enable-telegram=true \
-            --config telegram-bot-token="123456:TEST" \
-            --config enable-discord=true \
-            --config discord-bot-token="TEST.TOKEN.HERE"
+            --config ai-provider="anthropic" \
+            --config api-key="test-key" \
+            --config messenger="telegram" \
+            --config bot-token="123456:TEST"
       
       - name: Wait for deployment
         run: |
@@ -202,9 +202,9 @@ jobs:
       - name: Verify channel configuration
         run: |
           # Check that config file contains channel configuration
-          juju ssh openclaw/0 'cat /home/openclaw/.openclaw/openclaw.json' > config.json
+          juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' > config.json
           
-          if grep -q "telegram" config.json && grep -q "discord" config.json; then
+          if grep -q "telegram" config.json; then
             echo "✓ Channel configuration verified"
           else
             echo "✗ Channel configuration missing"
@@ -251,7 +251,8 @@ jobs:
       - name: Deploy v1
         run: |
           juju deploy ./openclaw-v1.charm \
-            --config anthropic-api-key="test-key"
+            --config ai-provider="anthropic" \
+            --config api-key="test-key"
       
       - name: Wait for initial deployment
         run: |
