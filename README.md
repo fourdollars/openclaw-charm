@@ -50,9 +50,33 @@ juju status --watch 1s
 
 # Get the gateway URL
 juju status openclaw
+
+# Get the gateway token and dashboard URL
+juju run openclaw/0 get-gateway-token format=url
 ```
 
 Access the OpenClaw Gateway at `http://<unit-ip>:18789`
+
+**For remote access**, see the [FAQ - SSH Tunnel Setup](FAQ.md#how-do-i-access-the-gateway-remotely)
+
+---
+
+## Actions
+
+### Get Gateway Token
+
+Retrieve the authentication token for accessing the OpenClaw Gateway:
+
+```bash
+# Get token only
+juju run openclaw/0 get-gateway-token
+
+# Get structured JSON with URLs
+juju run openclaw/0 get-gateway-token format=json
+
+# Get tokenized dashboard URL
+juju run openclaw/0 get-gateway-token format=url
+```
 
 ---
 
@@ -223,6 +247,8 @@ OpenClaw Gateway is designed to run as a single instance managing multiple chann
 ---
 
 ## Troubleshooting
+
+For detailed troubleshooting and common issues, see the **[FAQ](FAQ.md)**.
 
 ### Check Service Status
 
@@ -395,6 +421,7 @@ OpenClaw itself is MIT licensed. See [openclaw/openclaw](https://github.com/open
 
 ## Resources
 
+- **[FAQ - Frequently Asked Questions](FAQ.md)**: Common issues and solutions
 - **OpenClaw Website**: https://openclaw.ai
 - **OpenClaw Documentation**: https://docs.openclaw.ai
 - **OpenClaw GitHub**: https://github.com/openclaw/openclaw

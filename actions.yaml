@@ -1,0 +1,8 @@
+get-gateway-token:
+  description: Retrieve the OpenClaw Gateway authentication token
+  params:
+    format:
+      type: string
+      default: "text"
+      description: |
+        Output format: 'text' (token only), 'json' (structured), or 'url' (tokenized dashboard URL)

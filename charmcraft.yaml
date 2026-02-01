@@ -10,5 +10,7 @@ parts:
     source: .
     prime:
       - hooks
+      - actions
       - metadata.yaml
       - config.yaml
+      - actions.yaml

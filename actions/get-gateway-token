@@ -1,0 +1,56 @@
+#!/bin/bash
+set -e
+
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$CHARM_DIR/hooks/common.sh"
+
+FORMAT="$(action-get format || echo "text")"
+CONFIG_FILE="/home/ubuntu/.openclaw/openclaw.json"
+
+if [ ! -f "$CONFIG_FILE" ]; then
+    action-fail "OpenClaw config file not found at $CONFIG_FILE"
+    exit 1
+fi
+
+TOKEN=$(jq -r '.gateway.auth.token // empty' "$CONFIG_FILE" 2>/dev/null)
+
+if [ -z "$TOKEN" ]; then
+    action-fail "Gateway token not found in config"
+    exit 1
+fi
+
+GATEWAY_PORT=$(config-get gateway-port)
+GATEWAY_BIND=$(config-get gateway-bind)
+
+if [ "$GATEWAY_BIND" = "loopback" ]; then
+    IP="127.0.0.1"
+else
+    IP=$(unit-get private-address)
+fi
+
+case "$FORMAT" in
+    json)
+        action-set token="$TOKEN"
+        action-set gateway-url="http://${IP}:${GATEWAY_PORT}"
+        action-set dashboard-url="http://${IP}:${GATEWAY_PORT}/?token=${TOKEN}"
+        action-set result="$(jq -n \
+            --arg token "$TOKEN" \
+            --arg url "http://${IP}:${GATEWAY_PORT}" \
+            --arg dashboard "http://${IP}:${GATEWAY_PORT}/?token=${TOKEN}" \
+            '{token: $token, "gateway-url": $url, "dashboard-url": $dashboard}')"
+        ;;
+    url)
+        DASHBOARD_URL="http://${IP}:${GATEWAY_PORT}/?token=${TOKEN}"
+        action-set token="$TOKEN"
+        action-set dashboard-url="$DASHBOARD_URL"
+        action-set result="$DASHBOARD_URL"
+        echo "$DASHBOARD_URL"
+        ;;
+    text|*)
+        action-set token="$TOKEN"
+        action-set result="$TOKEN"
+        echo "$TOKEN"
+        ;;
+esac
+
+exit 0
