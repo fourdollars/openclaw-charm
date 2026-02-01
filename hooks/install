@@ -84,6 +84,9 @@ case "$INSTALL_METHOD" in
 exec /usr/local/bin/bun /home/ubuntu/.bun/install/global/node_modules/openclaw/openclaw.mjs "$@"
 EOF
             chmod +x /usr/local/bin/openclaw
+            
+            # Remove Bun's symlink that has node shebang (conflicts with wrapper)
+            rm -f /home/ubuntu/.bun/bin/openclaw
         else
             log_error "Bun installed packages but openclaw.mjs not found"
             exit 1

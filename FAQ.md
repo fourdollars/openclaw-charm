@@ -203,6 +203,143 @@ juju config openclaw \
 
 ---
 
+### How do I approve Telegram pairing requests?
+
+When a user sends a message to your Telegram bot for the first time, OpenClaw requires pairing approval for security (DM policy is set to "pairing" by default).
+
+**You'll see a pairing code in the Telegram message**, like: `Your pairing code is: U78G2QQE`
+
+**To approve the pairing:**
+
+1. **SSH into the OpenClaw unit:**
+   ```bash
+   juju ssh openclaw/0
+   ```
+
+2. **Approve the pairing using the code:**
+   ```bash
+   openclaw pairing approve telegram U78G2QQE
+   ```
+
+3. **Verify it was approved:**
+   ```bash
+   openclaw pairing list telegram
+   ```
+
+**Common pairing commands:**
+
+```bash
+# List all pending pairing requests for Telegram
+openclaw pairing list telegram
+
+# Approve a specific pairing request
+openclaw pairing approve telegram <CODE>
+
+# Reject a pairing request
+openclaw pairing reject telegram <CODE>
+
+# List approved/paired users
+openclaw pairing status telegram
+```
+
+**Alternative: Approve via Gateway UI**
+
+You can also approve pairing requests through the OpenClaw Gateway dashboard:
+
+1. Access the gateway (via SSH tunnel): `http://localhost:18789/?token=<your-token>`
+2. Navigate to **Settings** → **Channels** → **Telegram**
+3. View pending pairing requests and approve/reject them
+
+---
+
+### Telegram bot not receiving messages?
+
+If you configure Telegram but don't receive messages, check for webhook conflicts:
+
+**Symptoms:**
+- Service logs show: `getUpdates conflict: can't use getUpdates method while webhook is active`
+- Bot doesn't respond to messages
+
+**Solution:**
+
+1. **Delete the webhook:**
+   ```bash
+   # Replace with your bot token
+   curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/deleteWebhook"
+   ```
+
+2. **Restart OpenClaw service:**
+   ```bash
+   juju ssh openclaw/0 'sudo systemctl restart openclaw.service'
+   ```
+
+3. **Verify it's working:**
+   ```bash
+   juju ssh openclaw/0 'sudo journalctl -u openclaw.service -n 20 | grep telegram'
+   ```
+
+You should see `[telegram] [default] starting provider (@YourBotName)` without any errors.
+
+**Why does this happen?**
+Telegram bots can use either **webhooks** OR **polling** (getUpdates), but not both. If your bot was previously configured with a webhook (from another service), OpenClaw's polling mode will conflict with it.
+
+---
+
+### How do I use the OpenClaw CLI?
+
+Once deployed, you can use the `openclaw` command-line tool directly on the server for various management tasks.
+
+**Accessing the CLI:**
+
+```bash
+# SSH into the OpenClaw unit
+juju ssh openclaw/0
+
+# Now you can run openclaw commands
+openclaw --version
+openclaw --help
+```
+
+**Common CLI commands:**
+
+```bash
+# Pairing management
+openclaw pairing list telegram          # List pending pairing requests
+openclaw pairing approve telegram CODE  # Approve a pairing
+openclaw pairing reject telegram CODE   # Reject a pairing
+openclaw pairing status telegram        # Show paired users
+
+# System diagnostics
+openclaw doctor                         # Check system health
+openclaw doctor --fix                   # Auto-fix common issues
+
+# Session management
+openclaw sessions list                  # List active sessions
+openclaw sessions clean                 # Clean up old sessions
+
+# Configuration
+openclaw config show                    # Show current configuration
+openclaw config validate                # Validate configuration
+```
+
+**Troubleshooting:**
+
+If you get `/usr/bin/env: 'node': No such file or directory`:
+
+This means the OpenClaw CLI symlink is trying to use Node.js but only Bun is installed (when using `install-method=bun`). This is fixed automatically in newer charm versions, but you can fix it manually:
+
+```bash
+# Remove the problematic symlink
+sudo rm /home/ubuntu/.bun/bin/openclaw
+
+# Verify the wrapper script works
+openclaw --version
+```
+
+The wrapper script at `/usr/local/bin/openclaw` properly uses Bun to run OpenClaw.
+
+---
+
 ### How do I change the AI model?
 
 ```bash
