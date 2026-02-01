@@ -49,7 +49,7 @@ jobs:
       
       - name: Pack charm
         run: |
-          charmcraft pack --verbose
+          charmcraft pack --verbose --destructive-mode
       
       - name: Upload charm artifact
         uses: actions/upload-artifact@v6

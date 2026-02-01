@@ -88,7 +88,7 @@ jobs:
       
       - name: Pack charm
         run: |
-          charmcraft pack
+          charmcraft pack --destructive-mode
       
       - name: Deploy charm
         run: |
@@ -185,7 +185,7 @@ jobs:
       
       - name: Pack charm
         run: |
-          charmcraft pack
+          charmcraft pack --destructive-mode
       
       - name: Deploy with channel config
         run: |
@@ -246,7 +246,7 @@ jobs:
       
       - name: Pack charm (v1)
         run: |
-          charmcraft pack
+          charmcraft pack --destructive-mode
           mv openclaw_*.charm openclaw-v1.charm
       
       - name: Deploy v1
