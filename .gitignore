@@ -23,6 +23,11 @@ env/
 *~
 .DS_Store
 
+# AI assistant session files
+.sisyphus/
+.ralph/
+.manus/
+
 # Test artifacts
 *.log
 test-results/
