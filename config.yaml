@@ -36,26 +36,33 @@ options:
       For OpenAI: OpenAI API key
       For Google: Google Gemini API key
   
-  messenger:
+  telegram-bot-token:
     type: string
     default: ""
     description: |
-      Messaging platform to enable: 'telegram', 'discord', or 'slack'.
-      Leave empty to disable messaging channels.
+      Telegram bot token from @BotFather (e.g., 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11).
+      Leave empty to disable Telegram messaging.
   
-  bot-token:
+  discord-bot-token:
     type: string
     default: ""
     description: |
-      Bot token for the selected messenger platform.
-      For Telegram: Bot token from @BotFather
-      For Discord: Bot token from Discord Developer Portal
-      For Slack: Bot token (xoxb-...) from Slack App settings
+      Discord bot token from Discord Developer Portal.
+      Leave empty to disable Discord messaging.
   
-  app-token:
+  slack-bot-token:
     type: string
     default: ""
-    description: Slack app token (xapp-...) - only required for Slack messenger
+    description: |
+      Slack bot token (xoxb-...) from Slack App settings.
+      Leave empty to disable Slack messaging.
+  
+  slack-app-token:
+    type: string
+    default: ""
+    description: |
+      Slack app token (xapp-...) from Slack App settings.
+      Required when slack-bot-token is configured.
   
   dm-policy:
     type: string

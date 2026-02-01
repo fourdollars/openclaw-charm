@@ -152,14 +152,10 @@ juju deploy openclaw --config anthropic-api-key="your-key-here"
 ### Configuration
 ```bash
 # Enable Telegram
-juju config openclaw \
-  enable-telegram=true \
-  telegram-bot-token="123456:ABC-DEF"
+juju config openclaw telegram-bot-token="123456:ABC-DEF"
 
 # Enable Discord
-juju config openclaw \
-  enable-discord=true \
-  discord-bot-token="YOUR.TOKEN.HERE"
+juju config openclaw discord-bot-token="YOUR.TOKEN.HERE"
 ```
 
 ### Accessing Gateway
@@ -210,12 +206,10 @@ juju status openclaw
 ### Messaging Channels
 | Option | Type | Default |
 |--------|------|---------|
-| `enable-telegram` | boolean | false |
 | `telegram-bot-token` | string | - |
-| `enable-discord` | boolean | false |
 | `discord-bot-token` | string | - |
-| `enable-slack` | boolean | false |
 | `slack-bot-token` | string | - |
+| `slack-app-token` | string | - |
 
 ### Security
 | Option | Type | Default |

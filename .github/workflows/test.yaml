@@ -194,8 +194,7 @@ jobs:
             --config ai-provider="anthropic" \
             --config ai-model="claude-sonnet-3-5" \
             --config api-key="test-key" \
-            --config messenger="telegram" \
-            --config bot-token="123456:TEST"
+            --config telegram-bot-token="123456:TEST"
       
       - name: Wait for deployment
         run: |

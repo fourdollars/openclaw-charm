@@ -181,24 +181,19 @@ This allows access from other machines on your network (without SSH tunnel). **N
 
 **Telegram:**
 ```bash
-juju config openclaw \
-  messenger="telegram" \
-  bot-token="YOUR_TELEGRAM_BOT_TOKEN"
+juju config openclaw telegram-bot-token="YOUR_TELEGRAM_BOT_TOKEN"
 ```
 
 **Discord:**
 ```bash
-juju config openclaw \
-  messenger="discord" \
-  bot-token="YOUR_DISCORD_BOT_TOKEN"
+juju config openclaw discord-bot-token="YOUR_DISCORD_BOT_TOKEN"
 ```
 
 **Slack:**
 ```bash
 juju config openclaw \
-  messenger="slack" \
-  bot-token="xoxb-YOUR-BOT-TOKEN" \
-  app-token="xapp-YOUR-APP-TOKEN"
+  slack-bot-token="xoxb-YOUR-BOT-TOKEN" \
+  slack-app-token="xapp-YOUR-APP-TOKEN"
 ```
 
 ---
@@ -667,9 +662,10 @@ ssh -L 18789:127.0.0.1:18789 ubuntu@<gateway-ip>
 | `ai-provider` | (required) | anthropic, openai, google |
 | `ai-model` | (required) | Model name for selected provider |
 | `api-key` | (required) | API key for AI provider |
-| `messenger` | - | telegram, discord, or slack |
-| `bot-token` | - | Bot token for messenger |
-| `app-token` | - | Slack app token (Slack only) |
+| `telegram-bot-token` | - | Telegram bot token from @BotFather |
+| `discord-bot-token` | - | Discord bot token |
+| `slack-bot-token` | - | Slack bot token (xoxb-...) |
+| `slack-app-token` | - | Slack app token (xapp-...) |
 | `install-method` | npm | npm, pnpm, bun, or source |
 | `version` | latest | OpenClaw version to install |
 | `enable-browser-tool` | false | Enable Playwright browser |

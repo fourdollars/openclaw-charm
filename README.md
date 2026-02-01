@@ -119,24 +119,28 @@ juju config openclaw \
 
 **Enable Telegram**
 ```bash
-juju config openclaw \
-  messenger="telegram" \
-  bot-token="123456:ABC-DEF"
+juju config openclaw telegram-bot-token="123456:ABC-DEF"
 ```
 
 **Enable Discord**
 ```bash
-juju config openclaw \
-  messenger="discord" \
-  bot-token="YOUR.DISCORD.TOKEN"
+juju config openclaw discord-bot-token="YOUR.DISCORD.TOKEN"
 ```
 
 **Enable Slack**
 ```bash
 juju config openclaw \
-  messenger="slack" \
-  bot-token="xoxb-xxx" \
-  app-token="xapp-xxx"
+  slack-bot-token="xoxb-xxx" \
+  slack-app-token="xapp-xxx"
+```
+
+**Enable Multiple Platforms Simultaneously**
+```bash
+juju config openclaw \
+  telegram-bot-token="123456:ABC-DEF" \
+  discord-bot-token="YOUR.DISCORD.TOKEN" \
+  slack-bot-token="xoxb-xxx" \
+  slack-app-token="xapp-xxx"
 ```
 
 ### Security Configuration
@@ -177,9 +181,10 @@ juju config openclaw log-level="debug"
 | `ai-provider` | string | - | AI provider: anthropic, openai, google, bedrock, ollama |
 | `ai-model` | string | - | AI model name |
 | `api-key` | string | - | API key for selected provider |
-| `messenger` | string | - | Messaging platform: telegram, discord, slack |
-| `bot-token` | string | - | Bot token for selected messenger |
-| `app-token` | string | - | Slack app token (required for Slack) |
+| `telegram-bot-token` | string | - | Telegram bot token from @BotFather |
+| `discord-bot-token` | string | - | Discord bot token |
+| `slack-bot-token` | string | - | Slack bot token (xoxb-...) |
+| `slack-app-token` | string | - | Slack app token (xapp-...) |
 | `dm-policy` | string | pairing | DM policy: pairing, open, closed |
 | `sandbox-mode` | string | non-main | Sandbox: all, non-main, none |
 | `install-method` | string | npm | Install method: npm, pnpm, bun, source |

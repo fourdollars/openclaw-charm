@@ -133,46 +133,36 @@ generate_config() {
   "channels": {
 EOF
     
-    # Add messenger config based on selected platform
-    local messenger
-    messenger="$(config-get messenger)"
+    # Add platform-specific messenger configs
+    local telegram_bot_token discord_bot_token slack_bot_token slack_app_token
+    telegram_bot_token="$(config-get telegram-bot-token)"
+    discord_bot_token="$(config-get discord-bot-token)"
+    slack_bot_token="$(config-get slack-bot-token)"
+    slack_app_token="$(config-get slack-app-token)"
     
-    if [ -n "$messenger" ]; then
-        local bot_token
-        bot_token="$(config-get bot-token)"
-        
-        case "$messenger" in
-            telegram)
-                if [ -n "$bot_token" ]; then
-                    cat >> "$config_file" <<EOF
+    if [ -n "$telegram_bot_token" ]; then
+        cat >> "$config_file" <<EOF
     "telegram": {
-      "botToken": "${bot_token}"
+      "botToken": "${telegram_bot_token}"
     },
 EOF
-                fi
-                ;;
-            discord)
-                if [ -n "$bot_token" ]; then
-                    cat >> "$config_file" <<EOF
+    fi
+    
+    if [ -n "$discord_bot_token" ]; then
+        cat >> "$config_file" <<EOF
     "discord": {
-      "token": "${bot_token}"
+      "token": "${discord_bot_token}"
     },
 EOF
-                fi
-                ;;
-            slack)
-                local app_token
-                app_token="$(config-get app-token)"
-                if [ -n "$bot_token" ] && [ -n "$app_token" ]; then
-                    cat >> "$config_file" <<EOF
+    fi
+    
+    if [ -n "$slack_bot_token" ] && [ -n "$slack_app_token" ]; then
+        cat >> "$config_file" <<EOF
     "slack": {
-      "botToken": "${bot_token}",
-      "appToken": "${app_token}"
+      "botToken": "${slack_bot_token}",
+      "appToken": "${slack_app_token}"
     },
 EOF
-                fi
-                ;;
-        esac
     fi
     
     # Close channels object (remove trailing comma if exists)
@@ -389,34 +379,18 @@ validate_config() {
         errors=$((errors + 1))
     fi
     
-    local messenger
-    messenger="$(config-get messenger)"
+    local slack_bot_token slack_app_token
+    slack_bot_token="$(config-get slack-bot-token)"
+    slack_app_token="$(config-get slack-app-token)"
     
-    if [ -n "$messenger" ]; then
-        case "$messenger" in
-            telegram|discord)
-                if [ -z "$(config-get bot-token)" ]; then
-                    log_error "$messenger messenger selected but no bot-token configured"
-                    errors=$((errors + 1))
-                fi
-                ;;
-            slack)
-                if [ -z "$(config-get bot-token)" ]; then
-                    log_error "Slack messenger selected but no bot-token configured"
-                    errors=$((errors + 1))
-                fi
-                if [ -z "$(config-get app-token)" ]; then
-                    log_error "Slack messenger selected but no app-token configured"
-                    errors=$((errors + 1))
-                fi
-                ;;
-            *)
-                if [ "$messenger" != "" ]; then
-                    log_error "Invalid messenger value: $messenger (valid: telegram, discord, slack)"
-                    errors=$((errors + 1))
-                fi
-                ;;
-        esac
+    if [ -n "$slack_bot_token" ] && [ -z "$slack_app_token" ]; then
+        log_error "Slack bot-token configured but app-token is missing"
+        errors=$((errors + 1))
+    fi
+    
+    if [ -z "$slack_bot_token" ] && [ -n "$slack_app_token" ]; then
+        log_error "Slack app-token configured but bot-token is missing"
+        errors=$((errors + 1))
     fi
     
     return $errors

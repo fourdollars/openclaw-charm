@@ -506,7 +506,7 @@ juju deploy openclaw
 juju config openclaw anthropic-api-key="your-key-here"
 
 # Enable messaging platforms
-juju config openclaw enable-telegram=true telegram-bot-token="your-token"</code></pre>
+juju config openclaw telegram-bot-token="your-token"</code></pre>
                 </div>
             </div>
         </section>
@@ -603,7 +603,7 @@ juju config openclaw enable-telegram=true telegram-bot-token="your-token"</code>
                         <div class="step-content">
                             <h3>Enable Messaging Channels (Optional)</h3>
                             <p>Connect your preferred messaging platforms</p>
-                            <code>juju config openclaw \<br>  enable-telegram=true \<br>  telegram-bot-token="123456:ABC-DEF"</code>
+                            <code>juju config openclaw telegram-bot-token="123456:ABC-DEF"</code>
                         </div>
                     </div>
                     
@@ -669,20 +669,20 @@ juju config openclaw enable-telegram=true telegram-bot-token="your-token"</code>
                         <h3>💬 Messaging Platforms</h3>
                         <dl>
                             <div class="config-option">
-                                <dt>enable-telegram</dt>
-                                <dd>Enable Telegram channel integration</dd>
-                            </div>
-                            <div class="config-option">
                                 <dt>telegram-bot-token</dt>
-                                <dd>Telegram bot token</dd>
+                                <dd>Telegram bot token from @BotFather</dd>
                             </div>
                             <div class="config-option">
-                                <dt>enable-discord</dt>
-                                <dd>Enable Discord channel integration</dd>
+                                <dt>discord-bot-token</dt>
+                                <dd>Discord bot token from Developer Portal</dd>
                             </div>
                             <div class="config-option">
-                                <dt>enable-slack</dt>
-                                <dd>Enable Slack channel integration</dd>
+                                <dt>slack-bot-token</dt>
+                                <dd>Slack bot token (xoxb-...)</dd>
+                            </div>
+                            <div class="config-option">
+                                <dt>slack-app-token</dt>
+                                <dd>Slack app token (xapp-...)</dd>
                             </div>
                         </dl>
                     </div>
