@@ -19,6 +19,11 @@ log_debug() {
     echo "[DEBUG] $1"
 }
 
+log_warn() {
+    juju-log -l WARNING "$1"
+    echo "[WARN] $1" >&2
+}
+
 # Install Node.js using NodeSource repository
 install_nodejs() {
     local node_version
@@ -97,7 +102,7 @@ generate_config() {
     
     ai_provider="$(config-get ai-provider)"
     ai_model="$(config-get ai-model)"
-    api_key="$(config-get api-key)"
+    api_key="$(config-get ai-api-key)"
     gateway_port="$(config-get gateway-port)"
     gateway_bind="$(config-get gateway-bind)"
     log_level="$(config-get log-level)"
@@ -353,7 +358,7 @@ validate_config() {
     else
         case "$ai_provider" in
             anthropic|openai|google)
-                if [ -z "$(config-get api-key)" ]; then
+                if [ -z "$(config-get ai-api-key)" ]; then
                     log_error "$ai_provider provider selected but no API key configured"
                     errors=$((errors + 1))
                 fi

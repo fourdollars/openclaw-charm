@@ -341,19 +341,19 @@ The wrapper script at `/usr/local/bin/openclaw` properly uses Bun to run OpenCla
 # Switch to OpenAI GPT-4
 juju config openclaw \
   ai-provider="openai" \
-  api-key="sk-YOUR-OPENAI-KEY" \
+  ai-api-key="sk-YOUR-OPENAI-KEY" \
   ai-model="gpt-4"
 
 # Switch to Anthropic Claude
 juju config openclaw \
   ai-provider="anthropic" \
-  api-key="sk-ant-YOUR-KEY" \
+  ai-api-key="sk-ant-YOUR-KEY" \
   ai-model="claude-opus-4-5"
 
 # Switch to Google Gemini
 juju config openclaw \
   ai-provider="google" \
-  api-key="YOUR-GEMINI-KEY" \
+  ai-api-key="YOUR-GEMINI-KEY" \
   ai-model="gemini-2.0-flash"
 ```
 
@@ -406,7 +406,7 @@ The charm should automatically configure this during deployment. If it's missing
 
 ```bash
 # Get your configured API key
-API_KEY=$(juju config openclaw api-key)
+API_KEY=$(juju config openclaw ai-api-key)
 PROVIDER=$(juju config openclaw ai-provider)
 
 # SSH into the unit and configure auth
@@ -661,7 +661,7 @@ ssh -L 18789:127.0.0.1:18789 ubuntu@<gateway-ip>
 | `gateway-bind` | loopback | Bind mode: loopback, lan, or IP |
 | `ai-provider` | (required) | anthropic, openai, google |
 | `ai-model` | (required) | Model name for selected provider |
-| `api-key` | (required) | API key for AI provider |
+| `ai-api-key` | (required) | API key for AI provider |
 | `telegram-bot-token` | - | Telegram bot token from @BotFather |
 | `discord-bot-token` | - | Discord bot token |
 | `slack-bot-token` | - | Slack bot token (xoxb-...) |

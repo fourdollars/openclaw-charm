@@ -42,7 +42,7 @@ juju deploy openclaw
 # Configure with your AI provider
 juju config openclaw \
   ai-provider="anthropic" \
-  api-key="sk-ant-xxx" \
+  ai-api-key="sk-ant-xxx" \
   ai-model="claude-opus-4-5"
 
 # Wait for deployment
@@ -88,7 +88,7 @@ juju run openclaw/0 get-gateway-token format=url
 ```bash
 juju config openclaw \
   ai-provider="anthropic" \
-  api-key="sk-ant-xxx" \
+  ai-api-key="sk-ant-xxx" \
   ai-model="claude-opus-4-5"
 ```
 
@@ -96,7 +96,7 @@ juju config openclaw \
 ```bash
 juju config openclaw \
   ai-provider="openai" \
-  api-key="sk-xxx" \
+  ai-api-key="sk-xxx" \
   ai-model="gpt-4"
 ```
 
@@ -104,7 +104,7 @@ juju config openclaw \
 ```bash
 juju config openclaw \
   ai-provider="google" \
-  api-key="YOUR-GEMINI-API-KEY" \
+  ai-api-key="YOUR-GEMINI-API-KEY" \
   ai-model="gemini-2.0-flash"
 ```
 
@@ -180,7 +180,7 @@ juju config openclaw log-level="debug"
 | `node-version` | string | 24 | Node.js major version (min 22) |
 | `ai-provider` | string | - | AI provider: anthropic, openai, google, bedrock, ollama |
 | `ai-model` | string | - | AI model name |
-| `api-key` | string | - | API key for selected provider |
+| `ai-api-key` | string | - | API key for selected provider |
 | `telegram-bot-token` | string | - | Telegram bot token from @BotFather |
 | `discord-bot-token` | string | - | Discord bot token |
 | `slack-bot-token` | string | - | Slack bot token (xoxb-...) |
