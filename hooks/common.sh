@@ -140,10 +140,13 @@ EOF
     
     # Add platform-specific messenger configs
     local telegram_bot_token discord_bot_token slack_bot_token slack_app_token
+    local line_channel_access_token line_channel_secret
     telegram_bot_token="$(config-get telegram-bot-token)"
     discord_bot_token="$(config-get discord-bot-token)"
     slack_bot_token="$(config-get slack-bot-token)"
     slack_app_token="$(config-get slack-app-token)"
+    line_channel_access_token="$(config-get line-channel-access-token)"
+    line_channel_secret="$(config-get line-channel-secret)"
     
     if [ -n "$telegram_bot_token" ]; then
         cat >> "$config_file" <<EOF
@@ -166,6 +169,15 @@ EOF
     "slack": {
       "botToken": "${slack_bot_token}",
       "appToken": "${slack_app_token}"
+    },
+EOF
+    fi
+    
+    if [ -n "$line_channel_access_token" ] && [ -n "$line_channel_secret" ]; then
+        cat >> "$config_file" <<EOF
+    "line": {
+      "channelAccessToken": "${line_channel_access_token}",
+      "channelSecret": "${line_channel_secret}"
     },
 EOF
     fi
@@ -465,8 +477,11 @@ validate_config() {
     done
     
     local slack_bot_token slack_app_token
+    local line_channel_access_token line_channel_secret
     slack_bot_token="$(config-get slack-bot-token)"
     slack_app_token="$(config-get slack-app-token)"
+    line_channel_access_token="$(config-get line-channel-access-token)"
+    line_channel_secret="$(config-get line-channel-secret)"
     
     if [ -n "$slack_bot_token" ] && [ -z "$slack_app_token" ]; then
         log_error "Slack bot-token configured but app-token is missing"
@@ -475,6 +490,16 @@ validate_config() {
     
     if [ -z "$slack_bot_token" ] && [ -n "$slack_app_token" ]; then
         log_error "Slack app-token configured but bot-token is missing"
+        errors=$((errors + 1))
+    fi
+    
+    if [ -n "$line_channel_access_token" ] && [ -z "$line_channel_secret" ]; then
+        log_error "LINE channel-access-token configured but channel-secret is missing"
+        errors=$((errors + 1))
+    fi
+    
+    if [ -z "$line_channel_access_token" ] && [ -n "$line_channel_secret" ]; then
+        log_error "LINE channel-secret configured but channel-access-token is missing"
         errors=$((errors + 1))
     fi
     

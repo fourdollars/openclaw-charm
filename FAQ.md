@@ -196,6 +196,15 @@ juju config openclaw \
   slack-app-token="xapp-YOUR-APP-TOKEN"
 ```
 
+**LINE:**
+```bash
+juju config openclaw \
+  line-channel-access-token="YOUR-CHANNEL-ACCESS-TOKEN" \
+  line-channel-secret="YOUR-CHANNEL-SECRET"
+```
+
+Get your LINE credentials from the [LINE Developers Console](https://developers.line.biz/console/).
+
 ---
 
 ### How do I approve Telegram pairing requests?
@@ -699,6 +708,8 @@ ssh -L 18789:127.0.0.1:18789 ubuntu@<gateway-ip>
 | `discord-bot-token` | - | Discord bot token |
 | `slack-bot-token` | - | Slack bot token (xoxb-...) |
 | `slack-app-token` | - | Slack app token (xapp-...) |
+| `line-channel-access-token` | - | LINE channel access token |
+| `line-channel-secret` | - | LINE channel secret |
 | `install-method` | npm | npm, pnpm, bun, or source |
 | `version` | latest | OpenClaw version to install |
 | `enable-browser-tool` | false | Enable Playwright browser |

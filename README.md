@@ -178,13 +178,22 @@ juju config openclaw \
   slack-app-token="xapp-xxx"
 ```
 
+**Enable LINE**
+```bash
+juju config openclaw \
+  line-channel-access-token="YOUR-CHANNEL-ACCESS-TOKEN" \
+  line-channel-secret="YOUR-CHANNEL-SECRET"
+```
+
 **Enable Multiple Platforms Simultaneously**
 ```bash
 juju config openclaw \
   telegram-bot-token="123456:ABC-DEF" \
   discord-bot-token="YOUR.DISCORD.TOKEN" \
   slack-bot-token="xoxb-xxx" \
-  slack-app-token="xapp-xxx"
+  slack-app-token="xapp-xxx" \
+  line-channel-access-token="YOUR-CHANNEL-ACCESS-TOKEN" \
+  line-channel-secret="YOUR-CHANNEL-SECRET"
 ```
 
 ### Security Configuration
@@ -232,6 +241,8 @@ juju config openclaw log-level="debug"
 | `discord-bot-token` | string | - | Discord bot token |
 | `slack-bot-token` | string | - | Slack bot token (xoxb-...) |
 | `slack-app-token` | string | - | Slack app token (xapp-...) |
+| `line-channel-access-token` | string | - | LINE channel access token |
+| `line-channel-secret` | string | - | LINE channel secret |
 | `dm-policy` | string | pairing | DM policy: pairing, open, closed |
 | `sandbox-mode` | string | non-main | Sandbox: all, non-main, none |
 | `install-method` | string | npm | Install method: npm, pnpm, bun, source |

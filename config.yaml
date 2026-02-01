@@ -215,6 +215,20 @@ options:
       Slack app token (xapp-...) from Slack App settings.
       Required when slack-bot-token is configured.
   
+  line-channel-access-token:
+    type: string
+    default: ""
+    description: |
+      LINE Messaging API channel access token from LINE Developers Console.
+      Leave empty to disable LINE messaging.
+  
+  line-channel-secret:
+    type: string
+    default: ""
+    description: |
+      LINE Messaging API channel secret from LINE Developers Console.
+      Required when line-channel-access-token is configured.
+  
   dm-policy:
     type: string
     default: pairing
