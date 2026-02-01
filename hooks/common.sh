@@ -93,15 +93,13 @@ install_bun() {
 generate_config() {
     local config_file="/home/ubuntu/.openclaw/openclaw.json"
     local ai_provider ai_model api_key
-    local gateway_port gateway_bind dm_policy sandbox_mode log_level
+    local gateway_port gateway_bind log_level
     
     ai_provider="$(config-get ai-provider)"
     ai_model="$(config-get ai-model)"
     api_key="$(config-get api-key)"
     gateway_port="$(config-get gateway-port)"
     gateway_bind="$(config-get gateway-bind)"
-    dm_policy="$(config-get dm-policy)"
-    sandbox_mode="$(config-get sandbox-mode)"
     log_level="$(config-get log-level)"
     
     log_info "Generating OpenClaw configuration"
