@@ -205,13 +205,38 @@ juju config openclaw \
 
 Get your LINE credentials from the [LINE Developers Console](https://developers.line.biz/console/).
 
+**After configuring LINE credentials, you must also configure the webhook in the LINE Developers Console:**
+
+1. Go to [LINE Developers Console](https://developers.line.biz/console/)
+2. Select your channel → Messaging API tab
+3. Set **Webhook URL** to: `http://YOUR-SERVER-IP:18789/line/webhook`
+   - Replace `YOUR-SERVER-IP` with your unit's IP address (get from `juju status openclaw`)
+   - If your server is behind NAT, use a public URL or ngrok tunnel
+4. Enable **Use webhook** toggle
+5. Click **Verify** to test the webhook connection
+
+**Troubleshooting LINE Bot:**
+
+- **Bot doesn't respond to messages:**
+  - Verify webhook is configured and verified in LINE Developers Console
+  - Check webhook accessibility: `curl http://YOUR-IP:18789/line/webhook` should return `OK`
+  - Ensure `gateway-bind=lan` if accessing from external network
+  - LINE uses pairing mode by default - check if pairing approval is needed (see below)
+
+- **"Invalid signature" errors in logs:**
+  - LINE webhook requests include HMAC-SHA256 signature validation
+  - Ensure `line-channel-secret` matches your LINE channel secret exactly
+  - Check logs: `juju ssh openclaw/0 'journalctl -u openclaw.service | grep -i line'`
+
 ---
 
-### How do I approve Telegram pairing requests?
+### How do I approve pairing requests (Telegram/LINE)?
 
-When a user sends a message to your Telegram bot for the first time, OpenClaw requires pairing approval for security (DM policy is set to "pairing" by default).
+### How do I approve pairing requests (Telegram/LINE)?
 
-**You'll see a pairing code in the Telegram message**, like: `Your pairing code is: U78G2QQE`
+When a user sends a message to your bot for the first time, OpenClaw requires pairing approval for security (DM policy is set to "pairing" by default for both Telegram and LINE).
+
+**You'll see a pairing code in the message**, like: `Your pairing code is: U78G2QQE`
 
 **To approve the pairing:**
 
@@ -222,28 +247,37 @@ When a user sends a message to your Telegram bot for the first time, OpenClaw re
 
 2. **Approve the pairing using the code:**
    ```bash
+   # For Telegram
    openclaw pairing approve telegram U78G2QQE
+   
+   # For LINE
+   openclaw pairing approve line U78G2QQE
    ```
 
 3. **Verify it was approved:**
    ```bash
+   # For Telegram
    openclaw pairing list telegram
+   
+   # For LINE
+   openclaw pairing list line
    ```
 
 **Common pairing commands:**
 
 ```bash
-# List all pending pairing requests for Telegram
+# List all pending pairing requests
 openclaw pairing list telegram
+openclaw pairing list line
 
 # Approve a specific pairing request
-openclaw pairing approve telegram <CODE>
+openclaw pairing approve <channel> <CODE>
 
 # Reject a pairing request
-openclaw pairing reject telegram <CODE>
+openclaw pairing reject <channel> <CODE>
 
 # List approved/paired users
-openclaw pairing status telegram
+openclaw pairing status <channel>
 ```
 
 **Alternative: Approve via Gateway UI**

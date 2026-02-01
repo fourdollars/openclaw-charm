@@ -176,6 +176,7 @@ EOF
     if [ -n "$line_channel_access_token" ] && [ -n "$line_channel_secret" ]; then
         cat >> "$config_file" <<EOF
     "line": {
+      "dmPolicy": "pairing",
       "channelAccessToken": "${line_channel_access_token}",
       "channelSecret": "${line_channel_secret}"
     },
