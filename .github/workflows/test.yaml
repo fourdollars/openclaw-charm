@@ -268,6 +268,10 @@ jobs:
       
       - name: Verify upgrade success
         run: |
+          # Debug: show full JSON structure
+          echo "=== DEBUG: Full JSON output ===" 
+          juju status openclaw --format=json | jq '.applications.openclaw.units'
+          
           # Get unit workload status (use wildcard to get first unit)
           status=$(juju status openclaw --format=json | jq -r '.applications.openclaw.units[]["workload-status"].status' | head -1)
           echo "Current workload status: $status"
