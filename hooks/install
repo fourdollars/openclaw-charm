@@ -60,30 +60,15 @@ status-set maintenance "Installing OpenClaw ($INSTALL_METHOD)"
 case "$INSTALL_METHOD" in
     npm|pnpm)
         log_info "Installing OpenClaw via npm (v${OPENCLAW_VERSION})"
-        # Install globally to system path (npm works reliably as root)
-        npm install -g "openclaw@${OPENCLAW_VERSION}"
+        su - ubuntu -c "
+            export NVM_DIR=\"/home/ubuntu/.nvm\"
+            [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+            npm install -g openclaw@${OPENCLAW_VERSION}
+        "
         ;;
     bun)
         log_info "Installing OpenClaw via Bun (v${OPENCLAW_VERSION})"
-        
-        # Install as ubuntu user to their home directory
         su - ubuntu -c "bun install -g openclaw@${OPENCLAW_VERSION}"
-        
-        # OpenClaw's entry point uses #!/usr/bin/env node shebang
-        # Create a wrapper script that uses Bun instead
-        if [ -f /home/ubuntu/.bun/install/global/node_modules/openclaw/openclaw.mjs ]; then
-            cat > /usr/local/bin/openclaw <<'EOF'
-#!/bin/bash
-exec /usr/local/bin/bun /home/ubuntu/.bun/install/global/node_modules/openclaw/openclaw.mjs "$@"
-EOF
-            chmod +x /usr/local/bin/openclaw
-            
-            # Remove Bun's symlink that has node shebang (conflicts with wrapper)
-            rm -f /home/ubuntu/.bun/bin/openclaw
-        else
-            log_error "Bun installed packages but openclaw.mjs not found"
-            exit 1
-        fi
         ;;
     source)
         log_info "Installing OpenClaw from source"
@@ -91,10 +76,11 @@ EOF
         if [ "$OPENCLAW_VERSION" != "latest" ]; then
             su - ubuntu -c "cd /home/ubuntu/openclaw && git checkout ${OPENCLAW_VERSION}"
         fi
-        su - ubuntu -c "cd /home/ubuntu/openclaw && npm install -g pnpm && pnpm install && pnpm build"
-        # Create symlink to openclaw command
-        ln -sf /home/ubuntu/openclaw/packages/cli/dist/index.js /usr/local/bin/openclaw
-        chmod +x /usr/local/bin/openclaw
+        su - ubuntu -c "
+            export NVM_DIR=\"/home/ubuntu/.nvm\"
+            [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+            npm install -g pnpm && cd /home/ubuntu/openclaw && pnpm install && pnpm build
+        "
         ;;
     *)
         log_error "Unknown install method: $INSTALL_METHOD"
@@ -102,14 +88,14 @@ EOF
         ;;
 esac
 
-# Verify installation
-if ! command -v openclaw >/dev/null 2>&1; then
-    log_error "OpenClaw installation failed - command not found"
+# Verify installation (run as ubuntu user)
+if ! su - ubuntu -c "command -v openclaw" >/dev/null 2>&1; then
+    log_error "OpenClaw installation failed - command not found for ubuntu user"
     status-set blocked "Installation failed - openclaw command not found"
     exit 1
 fi
 
-INSTALLED_VERSION=$(timeout 5 openclaw --version 2>/dev/null || echo "unknown")
+INSTALLED_VERSION=$(su - ubuntu -c "timeout 5 openclaw --version 2>/dev/null" || echo "unknown")
 log_info "OpenClaw installed successfully: version $INSTALLED_VERSION"
 
 # Create systemd service
