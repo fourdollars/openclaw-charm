@@ -266,7 +266,10 @@ options:
   enable-browser-tool:
     type: boolean
     default: false
-    description: Enable Playwright browser automation tool
+    description: |
+      Install Google Chrome for browser automation. OpenClaw's browser tool 
+      enables web browsing, screenshots, and automation via Playwright.
+      Can be enabled post-deployment via 'juju config'.
   
   log-level:
     type: string

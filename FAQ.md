@@ -574,12 +574,43 @@ juju run openclaw/0 get-gateway-token
 
 Browser automation (Playwright) is disabled by default to reduce installation time and disk usage.
 
-To enable:
+**Enable browser automation:**
 ```bash
 juju config openclaw enable-browser-tool=true
 ```
 
-This will install Chrome and enable browser automation features.
+This will automatically install Google Chrome and enable browser automation features.
+
+**Features enabled:**
+- Web browsing and navigation
+- Screenshot capture
+- Form automation
+- Web scraping
+- Headless browser testing
+
+**Post-deployment configuration:**
+You can enable browser automation **at any time** - it works both during initial deployment and after the charm is already running. The charm will automatically install Chrome when you set this option to `true`.
+
+**For multi-unit deployments:**
+Chrome will be installed on all units (both Gateway and Nodes) to ensure browser commands can run anywhere.
+
+**Verification:**
+```bash
+# Check if Chrome is installed
+juju ssh openclaw/0 'google-chrome --version'
+
+# Check browser service status
+juju ssh openclaw/0 'journalctl -u openclaw.service | grep "browser/service"'
+```
+
+You should see: `Browser control service ready (profiles=2)`
+
+**Disable browser automation:**
+```bash
+juju config openclaw enable-browser-tool=false
+```
+
+Note: Disabling will not uninstall Chrome, but OpenClaw will stop advertising browser capabilities.
 
 ---
 

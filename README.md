@@ -234,6 +234,9 @@ juju config openclaw gateway-bind="lan"
 
 # Set log level
 juju config openclaw log-level="debug"
+
+# Enable browser automation (can be set anytime)
+juju config openclaw enable-browser-tool=true
 ```
 
 ---
@@ -262,7 +265,7 @@ juju config openclaw log-level="debug"
 | `install-method` | string | npm | Install method: npm, pnpm, bun, source |
 | `version` | string | latest | Version to install |
 | `auto-update` | boolean | false | Auto-update on charm upgrade |
-| `enable-browser-tool` | boolean | true | Enable Playwright browser |
+| `enable-browser-tool` | boolean | false | Enable Playwright browser (post-deployment supported) |
 | `log-level` | string | info | Log level: debug, info, warn, error |
 
 ---
