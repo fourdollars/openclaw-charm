@@ -29,9 +29,14 @@ if [ "$ROLE" = "gateway" ]; then
     fi
 else
     if systemctl is-active --quiet openclaw-node.service; then
-        gateway_host="$(relation-get -r openclaw-cluster:0 gateway-host 2>/dev/null || echo 'unknown')"
-        gateway_port="$(relation-get -r openclaw-cluster:0 gateway-port 2>/dev/null || echo 'unknown')"
-        status-set active "Node connected to ${gateway_host}:${gateway_port}"
+        read -r gateway_unit gateway_host gateway_port _ <<< "$(get_gateway_info)"
+        if [ -n "$gateway_unit" ]; then
+            status-set active "Node - connected to ${gateway_unit}"
+        elif [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
+            status-set active "Node connected to ${gateway_host}:${gateway_port}"
+        else
+            status-set blocked "Waiting for Gateway connection info"
+        fi
     else
         status-set blocked "Node service not running"
     fi

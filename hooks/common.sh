@@ -28,8 +28,9 @@ log_warn() {
 is_leader() {
     # is-leader outputs "True" or "False" (case-sensitive)
     # Juju hook tools may not be in PATH, try both PATH and full path
-    local result
-    result=$(is-leader 2>/dev/null || /var/lib/juju/tools/unit-$(unit-name)/is-leader 2>/dev/null || echo "False")
+    local result unit_dir
+    unit_dir="/var/lib/juju/tools/unit-$(unit-name)"
+    result=$(is-leader 2>/dev/null || "$unit_dir/is-leader" 2>/dev/null || echo "False")
     log_debug "is-leader output: $result"
     
     if [ "$result" = "True" ]; then

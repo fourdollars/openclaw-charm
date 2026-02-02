@@ -11,8 +11,7 @@ if [ "$ROLE" = "node" ]; then
     gateway_unit=""
     gateway_host=""
     gateway_port=""
-    gateway_token=""
-    read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
+    read -r gateway_unit gateway_host gateway_port _ <<< "$(get_gateway_info)"
     
     if [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
         log_info "Received Gateway info: ${gateway_host}:${gateway_port}"
