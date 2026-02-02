@@ -2,6 +2,10 @@
 *.charm
 build/
 *.snap
+.craft/
+parts/
+prime/
+stage/
 
 # Python
 __pycache__/

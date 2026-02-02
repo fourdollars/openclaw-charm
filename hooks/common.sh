@@ -738,7 +738,7 @@ validate_config() {
     ai_model="$(config-get ai-model)"
     
     if [ -z "$ai_model" ]; then
-        log_error "ai-model must be configured (e.g., claude-opus-4-5, gpt-4, gemini-2.0-flash)"
+        log_error "ai-model must be configured (e.g., claude-opus-4-5, gpt-4, gemini-2.5-flash-lite)"
         errors=$((errors + 1))
     fi
     

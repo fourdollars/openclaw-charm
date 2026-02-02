@@ -28,7 +28,7 @@ options:
   ai-model:
     type: string
     default: ""
-    description: AI model to use (e.g., claude-opus-4-5, gpt-4, gemini-2.0-flash, etc.)
+    description: AI model to use (e.g., claude-opus-4-5, gpt-4, gemini-2.5-flash-lite, etc.)
   
   ai-api-key:
     type: string

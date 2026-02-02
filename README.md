@@ -119,7 +119,7 @@ juju config openclaw \
 juju config openclaw \
   ai-provider="google" \
   ai-api-key="YOUR-GEMINI-API-KEY" \
-  ai-model="gemini-2.0-flash"
+  ai-model="gemini-2.5-flash-lite"
 ```
 
 **Local Models (Ollama)**
@@ -149,7 +149,7 @@ juju config openclaw \
 
 juju config openclaw \
   ai1-provider="google" \
-  ai1-model="gemini-2.0-flash" \
+  ai1-model="gemini-2.5-flash-lite" \
   ai1-api-key="YOUR-GEMINI-API-KEY"
 
 juju config openclaw \
