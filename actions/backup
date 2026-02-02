@@ -1,0 +1,159 @@
+#!/bin/bash
+set -e
+
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$CHARM_DIR/hooks/common.sh"
+
+# Get action parameters
+OUTPUT_PATH="$(action-get output-path || echo "/tmp")"
+WAIT_TIMEOUT="$(action-get wait-timeout || echo "30")"
+FORCE="$(action-get force || echo "false")"
+
+# Generate timestamp for backup filename
+TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+BACKUP_FILENAME="openclaw-backup-${TIMESTAMP}.tar.gz"
+BACKUP_FILE="${OUTPUT_PATH}/${BACKUP_FILENAME}"
+
+# OpenClaw data directory
+OPENCLAW_DIR="/home/ubuntu/.openclaw"
+
+# Validate output path exists and is writable
+if [ ! -d "$OUTPUT_PATH" ]; then
+    action-fail "Output path does not exist: $OUTPUT_PATH"
+    exit 1
+fi
+
+if [ ! -w "$OUTPUT_PATH" ]; then
+    action-fail "Output path is not writable: $OUTPUT_PATH"
+    exit 1
+fi
+
+# Check if OpenClaw directory exists
+if [ ! -d "$OPENCLAW_DIR" ]; then
+    action-fail "OpenClaw data directory not found: $OPENCLAW_DIR"
+    exit 1
+fi
+
+log_info "Starting OpenClaw backup process"
+action-set status="checking-processes"
+
+# Check for active processes
+ROLE="$(get_unit_role)"
+if [ "$ROLE" = "gateway" ]; then
+    SERVICE_NAME="openclaw.service"
+else
+    SERVICE_NAME="openclaw-node.service"
+fi
+
+# Wait for active processes to complete (with timeout)
+action-set status="waiting-for-idle"
+ELAPSED=0
+while [ $ELAPSED -lt "$WAIT_TIMEOUT" ]; do
+    # Check if there are active AI processing tasks
+    ACTIVE_PROCESSES=$(pgrep -c -f "openclaw-gateway|openclaw.*agent" || echo "0")
+    
+    if [ "$ACTIVE_PROCESSES" -le 2 ]; then
+        # Only parent process and main service running
+        log_info "No active processing detected, proceeding with backup"
+        break
+    fi
+    
+    log_info "Active processes detected ($ACTIVE_PROCESSES), waiting... ($ELAPSED/$WAIT_TIMEOUT seconds)"
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+done
+
+# Check if we timed out
+if [ $ELAPSED -ge "$WAIT_TIMEOUT" ] && [ "$ACTIVE_PROCESSES" -gt 2 ]; then
+    if [ "$FORCE" = "true" ]; then
+        log_info "Force flag set, proceeding with backup despite active processes"
+        action-set warning="Backup created while processes were active"
+    else
+        action-fail "Active processes still running after ${WAIT_TIMEOUT}s timeout. Use force=true to override."
+        exit 1
+    fi
+fi
+
+# Stop the service
+action-set status="stopping-service"
+log_info "Stopping $SERVICE_NAME"
+
+if ! systemctl stop "$SERVICE_NAME"; then
+    action-fail "Failed to stop $SERVICE_NAME"
+    exit 1
+fi
+
+# Wait a moment for service to fully stop
+sleep 2
+
+# Verify service is stopped
+if systemctl is-active --quiet "$SERVICE_NAME"; then
+    action-fail "Service $SERVICE_NAME is still active after stop command"
+    systemctl start "$SERVICE_NAME" || true
+    exit 1
+fi
+
+log_info "Service stopped successfully"
+
+# Create backup
+action-set status="creating-backup"
+log_info "Creating backup: $BACKUP_FILE"
+
+# Use tar to create compressed backup
+# Exclude temporary files and logs
+if tar -czf "$BACKUP_FILE" \
+    -C /home/ubuntu \
+    --exclude='.openclaw/*.log' \
+    --exclude='.openclaw/*/tmp' \
+    --exclude='.openclaw/*/cache' \
+    --exclude='.openclaw/workspace/.git' \
+    .openclaw 2>&1 | tee /tmp/backup-tar.log; then
+    
+    BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
+    log_info "Backup created successfully: $BACKUP_FILE ($BACKUP_SIZE)"
+    
+    # Set file permissions
+    chmod 600 "$BACKUP_FILE"
+    chown ubuntu:ubuntu "$BACKUP_FILE" 2>/dev/null || true
+    
+    action-set status="backup-complete"
+    action-set backup-file="$BACKUP_FILE"
+    action-set backup-size="$BACKUP_SIZE"
+    action-set timestamp="$TIMESTAMP"
+else
+    log_error "Failed to create backup archive"
+    action-set status="backup-failed"
+    BACKUP_FAILED=true
+fi
+
+# Restart the service
+action-set status="restarting-service"
+log_info "Restarting $SERVICE_NAME"
+
+if ! systemctl start "$SERVICE_NAME"; then
+    action-fail "Failed to restart $SERVICE_NAME after backup"
+    exit 1
+fi
+
+# Wait for service to be ready
+sleep 3
+
+if ! systemctl is-active --quiet "$SERVICE_NAME"; then
+    action-fail "Service $SERVICE_NAME failed to start after backup"
+    exit 1
+fi
+
+log_info "Service restarted successfully"
+
+# Final status
+if [ "${BACKUP_FAILED:-false}" = "true" ]; then
+    action-fail "Backup creation failed (see logs). Service has been restarted."
+    exit 1
+fi
+
+action-set status="success"
+action-set outcome="Backup completed successfully"
+action-set result="Backup created: $BACKUP_FILE ($BACKUP_SIZE)"
+
+log_info "Backup process completed successfully"
+exit 0

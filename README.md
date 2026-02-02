@@ -92,6 +92,57 @@ juju ssh openclaw/0 'openclaw devices list'
 
 **Note**: This action only needs to be run on the Gateway unit (leader). New Nodes will automatically appear in the pending list and can be approved at any time.
 
+### Backup Data
+
+Create a timestamped compressed backup of all OpenClaw data including conversations, memory, and configurations. The service will be gracefully stopped during backup and automatically restarted.
+
+```bash
+# Create backup with default settings (output to /tmp)
+juju run openclaw/0 backup
+
+# Specify custom output path
+juju run openclaw/0 backup output-path=/home/ubuntu/backups
+
+# Set custom wait timeout (default 30 seconds)
+juju run openclaw/0 backup wait-timeout=60
+
+# Force backup even if processes are active (not recommended)
+juju run openclaw/0 backup force=true
+```
+
+**What gets backed up:**
+- Conversation sessions (`.openclaw/agents/main/sessions/`)
+- Memory and workspace files (`.openclaw/workspace/`)
+- AI model configurations (`.openclaw/agents/main/agent/`)
+- Device pairings (`.openclaw/devices/`)
+- OpenClaw configuration (`.openclaw/openclaw.json`)
+
+**Backup process:**
+1. Waits for active processes to complete (up to `wait-timeout` seconds)
+2. Gracefully stops the OpenClaw service
+3. Creates compressed tar.gz archive with timestamp
+4. Restarts the service
+5. Sets proper permissions (600, owner: ubuntu)
+
+**Example output:**
+```
+backup-file: /tmp/openclaw-backup-20260202-082607.tar.gz
+backup-size: 400K
+status: success
+```
+
+**Restore from backup:**
+```bash
+# Stop OpenClaw service
+juju ssh openclaw/0 'sudo systemctl stop openclaw.service'
+
+# Extract backup (this will overwrite existing data)
+juju ssh openclaw/0 'tar -xzf /tmp/openclaw-backup-TIMESTAMP.tar.gz -C /home/ubuntu'
+
+# Start service
+juju ssh openclaw/0 'sudo systemctl start openclaw.service'
+```
+
 ---
 
 ## Configuration

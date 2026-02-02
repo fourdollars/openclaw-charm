@@ -768,12 +768,88 @@ Each instance has its own isolated configuration and workspace.
 
 ### How do I backup OpenClaw data?
 
+**Recommended: Use the backup action**
+
+The backup action provides a safe, automated way to backup your data:
+
 ```bash
-# Backup configuration and sessions
+# Create backup with default settings
+juju run openclaw/0 backup
+
+# Specify custom output directory
+juju run openclaw/0 backup output-path=/home/ubuntu/backups
+
+# Set custom wait timeout for active processes
+juju run openclaw/0 backup wait-timeout=60
+```
+
+The backup action will:
+- ✅ Wait for active processes to complete (graceful)
+- ✅ Stop the service safely
+- ✅ Create a timestamped compressed archive
+- ✅ Automatically restart the service
+- ✅ Set proper file permissions
+
+**What gets backed up:**
+- Conversation sessions and history
+- Memory and workspace files
+- AI model configurations
+- Device pairings
+- OpenClaw configuration
+
+**Download the backup:**
+```bash
+# Copy backup to your local machine
+juju scp openclaw/0:/tmp/openclaw-backup-TIMESTAMP.tar.gz .
+```
+
+**Manual backup (alternative method):**
+```bash
+# Stop service first
+juju ssh openclaw/0 'sudo systemctl stop openclaw.service'
+
+# Create backup
 juju ssh openclaw/0 'tar -czf ~/openclaw-backup.tar.gz ~/.openclaw/'
+
+# Restart service
+juju ssh openclaw/0 'sudo systemctl start openclaw.service'
 
 # Download backup
 juju scp openclaw/0:~/openclaw-backup.tar.gz .
+```
+
+**Restore from backup:**
+```bash
+# Upload backup to unit
+juju scp openclaw-backup-TIMESTAMP.tar.gz openclaw/0:/tmp/
+
+# Stop service
+juju ssh openclaw/0 'sudo systemctl stop openclaw.service'
+
+# Extract backup (overwrites existing data)
+juju ssh openclaw/0 'tar -xzf /tmp/openclaw-backup-TIMESTAMP.tar.gz -C /home/ubuntu'
+
+# Fix permissions
+juju ssh openclaw/0 'chown -R ubuntu:ubuntu /home/ubuntu/.openclaw'
+
+# Start service
+juju ssh openclaw/0 'sudo systemctl start openclaw.service'
+```
+
+**Automated backups:**
+
+Set up a cron job for regular backups:
+```bash
+juju ssh openclaw/0 'cat > /tmp/backup-cron.sh << "EOF"
+#!/bin/bash
+# Run backup action via juju
+/snap/bin/juju run openclaw/0 backup output-path=/home/ubuntu/backups
+# Clean up old backups (keep last 7 days)
+find /home/ubuntu/backups -name "openclaw-backup-*.tar.gz" -mtime +7 -delete
+EOF'
+
+juju ssh openclaw/0 'chmod +x /tmp/backup-cron.sh'
+juju ssh openclaw/0 'crontab -l | { cat; echo "0 2 * * * /tmp/backup-cron.sh >> /tmp/backup-cron.log 2>&1"; } | crontab -'
 ```
 
 ---

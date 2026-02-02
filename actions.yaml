@@ -14,3 +14,24 @@ approve-nodes:
       type: boolean
       default: true
       description: Automatically approve all pending nodes without confirmation
+
+backup:
+  description: |
+    Backup OpenClaw data (conversations, memory, configurations) to a timestamped compressed archive.
+    The service will be gracefully stopped before backup and restarted after completion.
+  params:
+    output-path:
+      type: string
+      default: "/tmp"
+      description: |
+        Directory where the backup file will be created (default: /tmp)
+    wait-timeout:
+      type: integer
+      default: 30
+      description: |
+        Maximum seconds to wait for active processes to complete before backup (default: 30)
+    force:
+      type: boolean
+      default: false
+      description: |
+        Force backup even if active processes are detected (not recommended)
