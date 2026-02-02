@@ -1,4 +1,4 @@
-# OpenClaw Juju Charm
+# OpenClaw Juju Charm (edge)
 
 [![Charm Tests](https://github.com/fourdollars/openclaw-charm/actions/workflows/test.yaml/badge.svg)](https://github.com/fourdollars/openclaw-charm/actions/workflows/test.yaml)
 [![CharmHub](https://charmhub.io/openclaw/badge.svg)](https://charmhub.io/openclaw)
@@ -37,7 +37,7 @@
 
 ```bash
 # Deploy OpenClaw
-juju deploy openclaw
+juju deploy openclaw --channel edge
 
 # Configure with your AI provider
 juju config openclaw \
@@ -262,11 +262,11 @@ Deploy multiple OpenClaw instances for different teams or environments:
 ```bash
 # Production instance
 juju deploy openclaw openclaw-prod \
-  --config gateway-port=18789
+  --config gateway-port=18789 --channel edge
 
 # Development instance
 juju deploy openclaw openclaw-dev \
-  --config gateway-port=18790
+  --config gateway-port=18790 --channel edge
 ```
 
 ### Custom Installation

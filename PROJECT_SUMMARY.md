@@ -113,7 +113,7 @@ openclaw-charm/
 
 ### Deployment Flow
 ```
-User runs: juju deploy openclaw --config ai-key="xxx"
+User runs: juju deploy openclaw --channel edge --config ai-key="xxx"
            ↓
 1. Install Hook
    • Installs Node.js 22+
@@ -153,14 +153,14 @@ User runs: juju deploy openclaw --config ai-key="xxx"
 
 ### Basic Deployment
 ```bash
-juju deploy openclaw \
+juju deploy openclaw --channel edge \
   --config anthropic-api-key="sk-ant-xxx" \
   --config ai-model="claude-opus-4-5"
 ```
 
 ### With Telegram Integration
 ```bash
-juju deploy openclaw \
+juju deploy openclaw --channel edge \
   --config anthropic-api-key="sk-ant-xxx" \
   --config enable-telegram=true \
   --config telegram-bot-token="123456:ABC"
@@ -168,7 +168,7 @@ juju deploy openclaw \
 
 ### From Source (Development)
 ```bash
-juju deploy openclaw \
+juju deploy openclaw --channel edge \
   --config install-method="source" \
   --config openclaw-version="main" \
   --config anthropic-api-key="sk-ant-xxx"
@@ -176,7 +176,7 @@ juju deploy openclaw \
 
 ### High Security Configuration
 ```bash
-juju deploy openclaw \
+juju deploy openclaw --channel edge \
   --config anthropic-api-key="sk-ant-xxx" \
   --config dm-policy="pairing" \
   --config sandbox-mode="all" \

@@ -648,11 +648,11 @@ Yes! Deploy multiple units with different configurations:
 ```bash
 # Production instance
 juju deploy openclaw openclaw-prod \
-  --config gateway-port=18789
+  --config gateway-port=18789 --channel edge
 
 # Development instance  
 juju deploy openclaw openclaw-dev \
-  --config gateway-port=18790
+  --config gateway-port=18790 --channel edge
 ```
 
 Each instance has its own isolated configuration and workspace.
