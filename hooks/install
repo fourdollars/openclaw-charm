@@ -60,7 +60,7 @@ status-set maintenance "Installing OpenClaw ($INSTALL_METHOD)"
 case "$INSTALL_METHOD" in
     npm|pnpm)
         log_info "Installing OpenClaw via npm (v${OPENCLAW_VERSION})"
-        su - ubuntu -c "
+        sudo -u ubuntu bash -l -c "
             export NVM_DIR=\"/home/ubuntu/.nvm\"
             [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
             npm install -g openclaw@${OPENCLAW_VERSION}
@@ -68,15 +68,15 @@ case "$INSTALL_METHOD" in
         ;;
     bun)
         log_info "Installing OpenClaw via Bun (v${OPENCLAW_VERSION})"
-        su - ubuntu -c "bun install -g openclaw@${OPENCLAW_VERSION}"
+        sudo -u ubuntu bash -l -c "bun install -g openclaw@${OPENCLAW_VERSION}"
         ;;
     source)
         log_info "Installing OpenClaw from source"
-        su - ubuntu -c "cd /home/ubuntu && git clone https://github.com/openclaw/openclaw.git"
+        sudo -u ubuntu bash -l -c "cd /home/ubuntu && git clone https://github.com/openclaw/openclaw.git"
         if [ "$OPENCLAW_VERSION" != "latest" ]; then
-            su - ubuntu -c "cd /home/ubuntu/openclaw && git checkout ${OPENCLAW_VERSION}"
+            sudo -u ubuntu bash -l -c "cd /home/ubuntu/openclaw && git checkout ${OPENCLAW_VERSION}"
         fi
-        su - ubuntu -c "
+        sudo -u ubuntu bash -l -c "
             export NVM_DIR=\"/home/ubuntu/.nvm\"
             [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
             npm install -g pnpm && cd /home/ubuntu/openclaw && pnpm install && pnpm build
@@ -88,14 +88,22 @@ case "$INSTALL_METHOD" in
         ;;
 esac
 
-# Verify installation (run as ubuntu user)
-if ! su - ubuntu -c "command -v openclaw" >/dev/null 2>&1; then
+# Verify installation (run as ubuntu user with proper environment)
+if ! sudo -u ubuntu bash -l -c "
+    export NVM_DIR=\"/home/ubuntu/.nvm\"
+    [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+    command -v openclaw
+" >/dev/null 2>&1; then
     log_error "OpenClaw installation failed - command not found for ubuntu user"
     status-set blocked "Installation failed - openclaw command not found"
     exit 1
 fi
 
-INSTALLED_VERSION=$(su - ubuntu -c "timeout 5 openclaw --version 2>/dev/null" || echo "unknown")
+INSTALLED_VERSION=$(sudo -u ubuntu bash -l -c "
+    export NVM_DIR=\"/home/ubuntu/.nvm\"
+    [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+    timeout 5 openclaw --version 2>/dev/null
+" || echo "unknown")
 log_info "OpenClaw installed successfully: version $INSTALLED_VERSION"
 
 # Create systemd service

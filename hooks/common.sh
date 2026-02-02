@@ -24,6 +24,11 @@ log_warn() {
     echo "[WARN] $1" >&2
 }
 
+# Run systemctl --user command as ubuntu with proper environment
+run_systemctl_user() {
+    systemctl --user --machine=ubuntu@ "$@"
+}
+
 # Check if this unit is the leader
 is_leader() {
     local result
@@ -143,7 +148,7 @@ install_nodejs() {
     else
         # Install nvm as ubuntu user
         log_info "Installing nvm for ubuntu user"
-        su - ubuntu -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash'
+        sudo -u ubuntu bash -l -c 'curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash'
         
         if [ ! -d "$nvm_dir" ]; then
             log_error "nvm installation failed - directory not found"
@@ -156,7 +161,7 @@ install_nodejs() {
     
     # Install Node.js using nvm
     log_info "Installing Node.js v${node_version} via nvm"
-    su - ubuntu -c "
+    sudo -u ubuntu bash -l -c "
         export NVM_DIR=\"$nvm_dir\"
         [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
         nvm install ${node_version}
@@ -166,7 +171,7 @@ install_nodejs() {
     
     # Verify installation
     local installed_version
-    installed_version=$(su - ubuntu -c "
+    installed_version=$(sudo -u ubuntu bash -l -c "
         export NVM_DIR=\"$nvm_dir\"
         [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
         node --version
@@ -197,7 +202,7 @@ install_bun() {
     mkdir -p "$BUN_INSTALL"
     chown -R ubuntu:ubuntu "$BUN_INSTALL"
     
-    su - ubuntu -c "curl -fsSL https://bun.sh/install | bash"
+    sudo -u ubuntu bash -l -c "curl -fsSL https://bun.sh/install | bash"
     
     if [ ! -f "$BUN_INSTALL/bin/bun" ]; then
         log_error "Bun installation failed - binary not found"
@@ -366,6 +371,7 @@ EOF
     cat > "$env_file" <<EOF
 # OpenClaw Environment Variables
 NODE_ENV=production
+NODE_VERSION=$(config-get node-version)
 OPENCLAW_GATEWAY_PORT=${gateway_port}
 OPENCLAW_GATEWAY_BIND=${gateway_bind}
 EOF
@@ -529,7 +535,7 @@ create_systemd_service() {
     
     log_info "Creating systemd user service for OpenClaw Gateway"
     
-    su - ubuntu -c "mkdir -p $service_dir"
+    sudo -u ubuntu bash -l -c "mkdir -p $service_dir"
     
     if [ -d "/home/ubuntu/.nvm" ]; then
         exec_start="/home/ubuntu/.nvm/nvm-exec openclaw gateway --verbose"
@@ -539,7 +545,7 @@ create_systemd_service() {
         exec_start="openclaw gateway --verbose"
     fi
     
-    su - ubuntu -c "cat > $service_file" <<EOF
+    sudo -u ubuntu bash -l -c "cat > $service_file" <<EOF
 [Unit]
 Description=OpenClaw Gateway - Personal AI Assistant
 Documentation=https://docs.openclaw.ai
@@ -572,10 +578,7 @@ EOF
     
     loginctl enable-linger ubuntu || log_warn "Failed to enable lingering for ubuntu user"
     
-    su - ubuntu -c "systemctl --user daemon-reload"
-    su - ubuntu -c "systemctl --user enable openclaw-gateway.service"
-    
-    log_info "Systemd user service created and enabled: openclaw-gateway.service"
+    log_info "Systemd user service file created: openclaw-gateway.service (will be enabled on start)"
 }
 
 create_node_systemd_service() {
@@ -597,7 +600,7 @@ create_node_systemd_service() {
     
     log_info "Creating OpenClaw Node systemd user service (connecting to ${gateway_host}:${gateway_port})"
     
-    su - ubuntu -c "mkdir -p $service_dir"
+    sudo -u ubuntu bash -l -c "mkdir -p $service_dir"
     
     if [ -d "/home/ubuntu/.nvm" ]; then
         exec_start="/home/ubuntu/.nvm/nvm-exec openclaw node run --host ${gateway_host} --port ${gateway_port}"
@@ -607,7 +610,7 @@ create_node_systemd_service() {
         exec_start="openclaw node run --host ${gateway_host} --port ${gateway_port}"
     fi
     
-    su - ubuntu -c "cat > $service_file" <<EOF
+    sudo -u ubuntu bash -l -c "cat > $service_file" <<EOF
 [Unit]
 Description=OpenClaw Node - Remote Capabilities Host
 Documentation=https://docs.openclaw.ai
@@ -618,6 +621,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=%h
 Environment="OPENCLAW_GATEWAY_TOKEN=${gateway_token}"
+Environment="NODE_VERSION=$(config-get node-version)"
 ExecStart=$exec_start
 Restart=always
 RestartSec=10
@@ -640,88 +644,89 @@ EOF
     
     loginctl enable-linger ubuntu || log_warn "Failed to enable lingering for ubuntu user"
     
-    su - ubuntu -c "systemctl --user daemon-reload"
-    su - ubuntu -c "systemctl --user enable openclaw-node.service"
-    
-    log_info "Node systemd user service created and enabled: openclaw-node.service"
+    log_info "Node systemd user service file created: openclaw-node.service (will be enabled on start)"
 }
 
 start_openclaw() {
     log_info "Starting OpenClaw Gateway service"
-    su - ubuntu -c "systemctl --user start openclaw-gateway.service"
+    run_systemctl_user daemon-reload
+    run_systemctl_user enable openclaw-gateway.service
+    run_systemctl_user start openclaw-gateway.service
     
     sleep 5
     
-    if su - ubuntu -c "systemctl --user is-active --quiet openclaw-gateway.service"; then
+    if run_systemctl_user is-active --quiet openclaw-gateway.service; then
         log_info "OpenClaw Gateway service started successfully"
         return 0
     else
         log_error "OpenClaw Gateway service failed to start"
-        su - ubuntu -c "systemctl --user status openclaw-gateway.service" || true
+        run_systemctl_user status openclaw-gateway.service || true
         return 1
     fi
 }
 
 stop_openclaw() {
     log_info "Stopping OpenClaw Gateway service"
-    su - ubuntu -c "systemctl --user stop openclaw-gateway.service" || true
+    run_systemctl_user stop openclaw-gateway.service || true
 }
 
 restart_openclaw() {
     log_info "Restarting OpenClaw Gateway service"
-    su - ubuntu -c "systemctl --user restart openclaw-gateway.service"
+    run_systemctl_user restart openclaw-gateway.service
     
     sleep 5
     
-    if su - ubuntu -c "systemctl --user is-active --quiet openclaw-gateway.service"; then
+    if run_systemctl_user is-active --quiet openclaw-gateway.service; then
         log_info "OpenClaw Gateway service restarted successfully"
         return 0
     else
         log_error "OpenClaw Gateway service failed to restart"
-        su - ubuntu -c "systemctl --user status openclaw-gateway.service" || true
+        run_systemctl_user status openclaw-gateway.service || true
         return 1
     fi
 }
 
 start_openclaw_node() {
     log_info "Starting OpenClaw Node service"
-    su - ubuntu -c "systemctl --user start openclaw-node.service"
+    run_systemctl_user daemon-reload
+    run_systemctl_user enable openclaw-node.service
+    run_systemctl_user start openclaw-node.service
     
     sleep 5
     
-    if su - ubuntu -c "systemctl --user is-active --quiet openclaw-node.service"; then
+    if run_systemctl_user is-active --quiet openclaw-node.service; then
         log_info "OpenClaw Node service started successfully"
         return 0
     else
         log_error "OpenClaw Node service failed to start"
-        su - ubuntu -c "systemctl --user status openclaw-node.service" || true
+        run_systemctl_user status openclaw-node.service || true
         return 1
     fi
 }
 
 stop_openclaw_node() {
     log_info "Stopping OpenClaw Node service"
-    su - ubuntu -c "systemctl --user stop openclaw-node.service" || true
+    run_systemctl_user stop openclaw-node.service || true
 }
 
 restart_openclaw_node() {
     log_info "Restarting OpenClaw Node service"
-    su - ubuntu -c "systemctl --user restart openclaw-node.service"
+    run_systemctl_user restart openclaw-node.service
     
     sleep 5
     
-    if su - ubuntu -c "systemctl --user is-active --quiet openclaw-node.service"; then
+    if run_systemctl_user is-active --quiet openclaw-node.service; then
         log_info "OpenClaw Node service restarted successfully"
         return 0
     else
         log_error "OpenClaw Node service failed to restart"
-        su - ubuntu -c "systemctl --user status openclaw-node.service" || true
+        run_systemctl_user status openclaw-node.service || true
         return 1
     fi
 }
 
 get_status() {
-    if su - ubuntu -c "systemctl --user is-active --quiet openclaw-gateway.service"; then
+    if run_systemctl_user is-active --quiet openclaw-gateway.service; then
         local port
         port="$(config-get gateway-port)"
         echo "OpenClaw Gateway running on port $port"

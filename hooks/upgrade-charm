@@ -20,26 +20,26 @@ if [ ! -d "/home/ubuntu/.bun" ] && [ "$INSTALL_METHOD" = "bun" ]; then
     install_bun
 fi
 
-if ! su - ubuntu -c "command -v openclaw" >/dev/null 2>&1; then
+if ! sudo -u ubuntu bash -l -c "command -v openclaw" >/dev/null 2>&1; then
     log_info "OpenClaw not found in user path - reinstalling"
     OPENCLAW_VERSION="$(config-get version)"
     
     case "$INSTALL_METHOD" in
         npm|pnpm)
-            su - ubuntu -c "
+            sudo -u ubuntu bash -l -c "
                 export NVM_DIR=\"/home/ubuntu/.nvm\"
                 [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
                 npm install -g openclaw@${OPENCLAW_VERSION}
             "
             ;;
         bun)
-            su - ubuntu -c "bun install -g openclaw@${OPENCLAW_VERSION}"
+            sudo -u ubuntu bash -l -c "bun install -g openclaw@${OPENCLAW_VERSION}"
             ;;
         source)
             if [ ! -d "/home/ubuntu/openclaw" ]; then
-                su - ubuntu -c "cd /home/ubuntu && git clone https://github.com/openclaw/openclaw.git"
+                sudo -u ubuntu bash -l -c "cd /home/ubuntu && git clone https://github.com/openclaw/openclaw.git"
             fi
-            su - ubuntu -c "
+            sudo -u ubuntu bash -l -c "
                 export NVM_DIR=\"/home/ubuntu/.nvm\"
                 [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
                 cd /home/ubuntu/openclaw && git fetch && git checkout ${OPENCLAW_VERSION} && pnpm install && pnpm build
@@ -64,17 +64,17 @@ if [ "$(config-get auto-update)" = "True" ]; then
     
     case "$INSTALL_METHOD" in
         npm|pnpm)
-            su - ubuntu -c "
+            sudo -u ubuntu bash -l -c "
                 export NVM_DIR=\"/home/ubuntu/.nvm\"
                 [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
                 npm update -g openclaw@${OPENCLAW_VERSION}
             "
             ;;
         bun)
-            su - ubuntu -c "bun update -g openclaw@${OPENCLAW_VERSION}"
+            sudo -u ubuntu bash -l -c "bun update -g openclaw@${OPENCLAW_VERSION}"
             ;;
         source)
-            su - ubuntu -c "
+            sudo -u ubuntu bash -l -c "
                 export NVM_DIR=\"/home/ubuntu/.nvm\"
                 [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
                 cd /home/ubuntu/openclaw && git fetch && git checkout ${OPENCLAW_VERSION} && pnpm install && pnpm build
@@ -82,14 +82,14 @@ if [ "$(config-get auto-update)" = "True" ]; then
             ;;
     esac
     
-    INSTALLED_VERSION=$(su - ubuntu -c "timeout 5 openclaw --version" 2>/dev/null || echo "unknown")
+    INSTALLED_VERSION=$(sudo -u ubuntu bash -l -c "timeout 5 openclaw --version" 2>/dev/null || echo "unknown")
     log_info "OpenClaw updated to version $INSTALLED_VERSION"
 fi
 
 generate_config
 
 if [ "$ROLE" = "gateway" ]; then
-    if su - ubuntu -c "systemctl --user is-active --quiet openclaw-gateway.service" 2>/dev/null; then
+    if sudo -u ubuntu bash -l -c "systemctl --user is-active --quiet openclaw-gateway.service" 2>/dev/null; then
         log_info "Restarting OpenClaw Gateway after upgrade"
         if restart_openclaw; then
             port="$(config-get gateway-port)"
@@ -125,7 +125,7 @@ if [ "$ROLE" = "gateway" ]; then
         fi
     fi
 else
-    if su - ubuntu -c "systemctl --user is-active --quiet openclaw-node.service" 2>/dev/null; then
+    if sudo -u ubuntu bash -l -c "systemctl --user is-active --quiet openclaw-node.service" 2>/dev/null; then
         log_info "Restarting OpenClaw Node after upgrade"
         if restart_openclaw_node; then
             status-set active "Node - connected to gateway (upgraded)"

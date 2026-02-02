@@ -77,16 +77,16 @@ fi
 action-set status="stopping-service"
 log_info "Stopping $SERVICE_NAME"
 
-if ! su - ubuntu -c "systemctl --user stop $SERVICE_NAME"; then
+if ! run_systemctl_user "systemctl --user stop $SERVICE_NAME; then
     action-fail "Failed to stop $SERVICE_NAME"
     exit 1
 fi
 
 sleep 2
 
-if su - ubuntu -c "systemctl --user is-active --quiet $SERVICE_NAME"; then
+if run_systemctl_user "systemctl --user is-active --quiet $SERVICE_NAME; then
     action-fail "Service $SERVICE_NAME is still active after stop command"
-    su - ubuntu -c "systemctl --user start $SERVICE_NAME" || true
+    run_systemctl_user "systemctl --user start $SERVICE_NAME || true
     exit 1
 fi
 
@@ -126,14 +126,14 @@ fi
 action-set status="restarting-service"
 log_info "Restarting $SERVICE_NAME"
 
-if ! su - ubuntu -c "systemctl --user start $SERVICE_NAME"; then
+if ! run_systemctl_user "systemctl --user start $SERVICE_NAME; then
     action-fail "Failed to restart $SERVICE_NAME after backup"
     exit 1
 fi
 
 sleep 3
 
-if ! su - ubuntu -c "systemctl --user is-active --quiet $SERVICE_NAME"; then
+if ! run_systemctl_user "systemctl --user is-active --quiet $SERVICE_NAME; then
     action-fail "Service $SERVICE_NAME failed to start after backup"
     exit 1
 fi
