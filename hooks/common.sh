@@ -202,6 +202,52 @@ install_bun() {
     log_info "Bun installed: v$installed_version"
 }
 
+# Install Google Chrome for browser automation
+install_chrome() {
+    log_info "Checking if Chrome needs to be installed"
+    
+    if command -v google-chrome >/dev/null 2>&1; then
+        local chrome_version
+        chrome_version=$(google-chrome --version 2>/dev/null || echo "unknown")
+        log_info "Chrome already installed: $chrome_version"
+        return 0
+    fi
+    
+    log_info "Installing Google Chrome for browser automation"
+    
+    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+    
+    apt-get update
+    apt-get install -y google-chrome-stable
+    
+    if ! command -v google-chrome >/dev/null 2>&1; then
+        log_error "Chrome installation failed - command not found"
+        return 1
+    fi
+    
+    local chrome_version
+    chrome_version=$(google-chrome --version)
+    log_info "Chrome installed successfully: $chrome_version"
+    return 0
+}
+
+ensure_chrome_installed() {
+    local enable_browser_tool
+    enable_browser_tool="$(config-get enable-browser-tool)"
+    
+    if [ "$enable_browser_tool" = "True" ]; then
+        if ! command -v google-chrome >/dev/null 2>&1; then
+            log_info "enable-browser-tool is True but Chrome not found - installing"
+            install_chrome
+        else
+            log_debug "enable-browser-tool is True and Chrome is already installed"
+        fi
+    else
+        log_debug "enable-browser-tool is False - skipping Chrome installation"
+    fi
+}
+
 # Generate OpenClaw configuration
 generate_config() {
     local config_file="/home/ubuntu/.openclaw/openclaw.json"

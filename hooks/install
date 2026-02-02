@@ -27,14 +27,7 @@ apt-get install -y \
     gnupg \
     unzip
 
-# Install Google Chrome for browser automation if enabled
-if [ "$(config-get enable-browser-tool)" = "True" ]; then
-    log_info "Installing Google Chrome for browser automation"
-    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
-    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
-    apt-get update
-    apt-get install -y google-chrome-stable
-fi
+ensure_chrome_installed
 
 # Use ubuntu user (already exists on Ubuntu systems)
 

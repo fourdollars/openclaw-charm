@@ -9,6 +9,8 @@ log_info "Configuration changed for $ROLE"
 
 status-set maintenance "Updating $ROLE configuration"
 
+ensure_chrome_installed
+
 if [ "$ROLE" = "gateway" ]; then
     if ! validate_config; then
         status-set blocked "Configuration validation failed - check logs"
