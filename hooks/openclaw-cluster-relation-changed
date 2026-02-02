@@ -1,0 +1,43 @@
+#!/bin/bash
+set -e
+
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$CHARM_DIR/hooks/common.sh"
+
+ROLE="$(get_unit_role)"
+log_info "Peer relation changed - role: $ROLE"
+
+if [ "$ROLE" = "node" ]; then
+    gateway_unit=""
+    gateway_host=""
+    gateway_port=""
+    gateway_token=""
+    read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
+    
+    if [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
+        log_info "Received Gateway info: ${gateway_host}:${gateway_port}"
+        
+        status-set maintenance "Updating node configuration"
+        
+        if generate_node_config; then
+            create_node_systemd_service
+            
+            if systemctl is-active --quiet openclaw-node.service; then
+                restart_openclaw_node
+            else
+                start_openclaw_node
+            fi
+            
+            if [ -n "$gateway_unit" ]; then
+                status-set active "Node - connected to ${gateway_unit}"
+            else
+                status-set active "Node connected to ${gateway_host}:${gateway_port}"
+            fi
+        else
+            status-set blocked "Failed to configure Node"
+        fi
+    else
+        log_info "Gateway info not yet available"
+        status-set waiting "Waiting for Gateway connection info"
+    fi
+fi

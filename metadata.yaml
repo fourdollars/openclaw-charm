@@ -35,3 +35,7 @@ provides:
   gateway:
     interface: http
     description: OpenClaw Gateway HTTP/WebSocket interface
+peers:
+  openclaw-cluster:
+    interface: openclaw-cluster
+    description: Peer relation for OpenClaw units to coordinate Gateway and Node roles

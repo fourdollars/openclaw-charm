@@ -1,77 +1,169 @@
 #!/bin/bash
 set -e
 
-# OpenClaw Juju Charm - Config Changed Hook
-# This hook handles configuration updates
-
 CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$CHARM_DIR/hooks/common.sh"
 
-log_info "Configuration changed"
+ROLE="$(get_unit_role)"
+log_info "Configuration changed for $ROLE"
 
-status-set maintenance "Updating configuration"
+status-set maintenance "Updating $ROLE configuration"
 
-# Validate new configuration
-if ! validate_config; then
-    status-set blocked "Configuration validation failed - check logs"
-    exit 1
-fi
-
-# Check if Node.js version changed (only for npm/pnpm/source installs)
-INSTALL_METHOD="$(config-get install-method)"
-if [ "$INSTALL_METHOD" != "bun" ]; then
-    CURRENT_NODE_VERSION=$(node --version 2>/dev/null | cut -d'.' -f1 | sed 's/v//' || echo "0")
-    CONFIGURED_NODE_VERSION=$(config-get node-version)
-    
-    if [ "$CURRENT_NODE_VERSION" != "$CONFIGURED_NODE_VERSION" ]; then
-        log_info "Node.js version changed - reinstalling"
-        install_nodejs
-    fi
-fi
-
-# Check if auto-update is enabled and version changed
-if [ "$(config-get auto-update)" = "True" ]; then
-    log_info "Auto-update enabled - checking for updates"
-    INSTALL_METHOD="$(config-get install-method)"
-    OPENCLAW_VERSION="$(config-get version)"
-    
-    case "$INSTALL_METHOD" in
-        npm)
-            su - openclaw -c "npm update -g openclaw@${OPENCLAW_VERSION}"
-            ;;
-        pnpm)
-            su - openclaw -c "pnpm update -g openclaw@${OPENCLAW_VERSION}"
-            ;;
-        source)
-            su - ubuntu -c "cd /home/ubuntu/openclaw && git fetch && git checkout ${OPENCLAW_VERSION} && pnpm install && pnpm build"
-            ;;
-    esac
-fi
-
-# Regenerate configuration
-generate_config
-
-# Handle port changes
-OLD_PORT=$(grep "OPENCLAW_GATEWAY_PORT" /home/ubuntu/.openclaw/environment 2>/dev/null | cut -d'=' -f2 || echo "")
-NEW_PORT=$(config-get gateway-port)
-
-if [ -n "$OLD_PORT" ] && [ "$OLD_PORT" != "$NEW_PORT" ]; then
-    log_info "Port changed from $OLD_PORT to $NEW_PORT"
-    close-port "$OLD_PORT/tcp" || true
-    open-port "$NEW_PORT/tcp"
-fi
-
-# Restart service to apply changes
-if systemctl is-active --quiet openclaw.service; then
-    log_info "Restarting OpenClaw to apply configuration changes"
-    if restart_openclaw; then
-        status-set active "Gateway: http://$(unit-get private-address):$NEW_PORT"
-        log_info "Configuration updated and service restarted"
-    else
-        status-set blocked "Failed to restart after config change"
+if [ "$ROLE" = "gateway" ]; then
+    if ! validate_config; then
+        status-set blocked "Configuration validation failed - check logs"
         exit 1
     fi
+    
+    if ! validate_gateway_bind; then
+        status-set blocked "Multi-unit deployment requires gateway-bind=lan (currently: $(config-get gateway-bind))"
+        log_error "Cannot run Gateway with gateway-bind=loopback in multi-unit deployment"
+        exit 1
+    fi
+    
+    INSTALL_METHOD="$(config-get install-method)"
+    if [ "$INSTALL_METHOD" != "bun" ]; then
+        CURRENT_NODE_VERSION=$(node --version 2>/dev/null | cut -d'.' -f1 | sed 's/v//' || echo "0")
+        CONFIGURED_NODE_VERSION=$(config-get node-version)
+        
+        if [ "$CURRENT_NODE_VERSION" != "$CONFIGURED_NODE_VERSION" ]; then
+            log_info "Node.js version changed - reinstalling"
+            install_nodejs
+        fi
+    fi
+    
+    if [ "$(config-get auto-update)" = "True" ]; then
+        log_info "Auto-update enabled - checking for updates"
+        OPENCLAW_VERSION="$(config-get version)"
+        
+        case "$INSTALL_METHOD" in
+            npm)
+                su - openclaw -c "npm update -g openclaw@${OPENCLAW_VERSION}"
+                ;;
+            pnpm)
+                su - openclaw -c "pnpm update -g openclaw@${OPENCLAW_VERSION}"
+                ;;
+            source)
+                su - ubuntu -c "cd /home/ubuntu/openclaw && git fetch && git checkout ${OPENCLAW_VERSION} && pnpm install && pnpm build"
+                ;;
+        esac
+    fi
+    
+    generate_config
+    
+    OLD_PORT=$(grep "OPENCLAW_GATEWAY_PORT" /home/ubuntu/.openclaw/environment 2>/dev/null | cut -d'=' -f2 || echo "")
+    NEW_PORT=$(config-get gateway-port)
+    
+    if [ -n "$OLD_PORT" ] && [ "$OLD_PORT" != "$NEW_PORT" ]; then
+        log_info "Port changed from $OLD_PORT to $NEW_PORT"
+        close-port "$OLD_PORT/tcp" || true
+        open-port "$NEW_PORT/tcp"
+    fi
+    
+    if systemctl is-active --quiet openclaw.service; then
+        log_info "Restarting Gateway to apply configuration changes"
+        if restart_openclaw; then
+            bind="$(config-get gateway-bind)"
+            if [ "$bind" = "loopback" ]; then
+                ip="127.0.0.1"
+            else
+                ip=$(unit-get private-address)
+            fi
+            
+            gateway_token=$(jq -r '.gateway.auth.token // empty' /home/ubuntu/.openclaw/openclaw.json 2>/dev/null)
+            
+            # For Node connections, always use private-address even if bind is loopback
+            gateway_host=$(unit-get private-address)
+            
+            # Update peer relation data with new Gateway info
+            relation_id=$(relation-ids openclaw-cluster 2>/dev/null | head -1)
+            if [ -n "$relation_id" ]; then
+                log_info "Updating peer relation $relation_id with gateway info: ${gateway_host}:${NEW_PORT}"
+                relation-set -r "$relation_id" gateway-host="$gateway_host" || true
+                relation-set -r "$relation_id" gateway-port="$NEW_PORT" || true
+                if [ -n "$gateway_token" ]; then
+                    log_info "Publishing gateway token to relation"
+                    relation-set -r "$relation_id" gateway-token="$gateway_token" || true
+                fi
+            else
+                log_warn "No peer relation found, skipping relation-set"
+            fi
+            
+            status-set active "Gateway: http://${ip}:${NEW_PORT}"
+            log_info "Gateway configuration updated and service restarted"
+        else
+            status-set blocked "Failed to restart Gateway after config change"
+            exit 1
+        fi
+    else
+        log_info "Gateway not running - configuration updated for next start"
+        status-set active "Configuration updated"
+    fi
 else
-    log_info "Service not running - configuration updated for next start"
-    status-set active "Configuration updated"
+    if ! generate_node_config; then
+        status-set blocked "Waiting for Gateway connection info from leader"
+        log_info "Node config cannot be updated - waiting for Gateway info"
+        exit 0
+    fi
+    
+    # Stop Gateway service if it's running (happens when unit was initially misdetected as leader)
+    if systemctl is-active --quiet openclaw.service; then
+        log_info "Stopping Gateway service (unit is now Node)"
+        systemctl stop openclaw.service || true
+        systemctl disable openclaw.service || true
+    fi
+    
+    # Create Node service if it doesn't exist
+    if [ ! -f /etc/systemd/system/openclaw-node.service ]; then
+        log_info "Creating Node service"
+        if ! create_node_systemd_service; then
+            status-set blocked "Failed to create Node service"
+            exit 1
+        fi
+    fi
+    
+    # Start or restart Node service
+    if systemctl is-active --quiet openclaw-node.service; then
+        log_info "Restarting Node to apply configuration changes"
+        if restart_openclaw_node; then
+            gateway_unit=""
+            gateway_host=""
+            gateway_port=""
+            gateway_token=""
+            read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
+            
+            if [ -n "$gateway_unit" ]; then
+                status-set active "Node - connected to ${gateway_unit}"
+            elif [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
+                status-set active "Node connected to ${gateway_host}:${gateway_port}"
+            else
+                status-set active "Node service restarted"
+            fi
+            log_info "Node configuration updated and service restarted"
+        else
+            status-set blocked "Failed to restart Node after config change"
+            exit 1
+        fi
+    else
+        log_info "Starting Node service"
+        if start_openclaw_node; then
+            gateway_unit=""
+            gateway_host=""
+            gateway_port=""
+            gateway_token=""
+            read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
+            
+            if [ -n "$gateway_unit" ]; then
+                status-set active "Node - connected to ${gateway_unit}"
+            elif [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
+                status-set active "Node connected to ${gateway_host}:${gateway_port}"
+            else
+                status-set active "Node service started"
+            fi
+            log_info "Node service started successfully"
+        else
+            status-set blocked "Failed to start Node service"
+            exit 1
+        fi
+    fi
 fi

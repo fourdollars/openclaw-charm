@@ -1,32 +1,38 @@
 #!/bin/bash
 set -e
 
-# OpenClaw Juju Charm - Update Status Hook
-# This hook updates the status message
-
 CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$CHARM_DIR/hooks/common.sh"
 
-# Check if service is running
-if systemctl is-active --quiet openclaw.service; then
-    port="$(config-get gateway-port)"
-    bind="$(config-get gateway-bind)"
-    
-    # Determine the IP address to show in status
-    if [ "$bind" = "loopback" ]; then
-        ip="127.0.0.1"
+ROLE="$(get_unit_role)"
+
+if [ "$ROLE" = "gateway" ]; then
+    if systemctl is-active --quiet openclaw.service; then
+        port="$(config-get gateway-port)"
+        bind="$(config-get gateway-bind)"
+        
+        if [ "$bind" = "loopback" ]; then
+            ip="127.0.0.1"
+        else
+            ip=$(unit-get private-address)
+        fi
+        
+        url="http://${ip}:${port}"
+        
+        if validate_config; then
+            status-set active "Gateway: $url"
+        else
+            status-set blocked "Gateway running but configuration incomplete"
+        fi
     else
-        ip=$(unit-get private-address)
-    fi
-    
-    url="http://${ip}:${port}"
-    
-    # Check if configuration is valid
-    if validate_config; then
-        status-set active "Gateway: $url"
-    else
-        status-set blocked "OpenClaw running but configuration incomplete"
+        status-set blocked "Gateway service not running"
     fi
 else
-    status-set blocked "OpenClaw service not running"
+    if systemctl is-active --quiet openclaw-node.service; then
+        gateway_host="$(relation-get -r openclaw-cluster:0 gateway-host 2>/dev/null || echo 'unknown')"
+        gateway_port="$(relation-get -r openclaw-cluster:0 gateway-port 2>/dev/null || echo 'unknown')"
+        status-set active "Node connected to ${gateway_host}:${gateway_port}"
+    else
+        status-set blocked "Node service not running"
+    fi
 fi

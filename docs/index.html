@@ -754,6 +754,101 @@ juju config openclaw \
                 </div>
             </div>
         </section>
+        
+        <!-- Multi-Unit Scaling Section -->
+        <section class="features">
+            <div class="container">
+                <h2 class="section-title">Multi-Unit Scaling</h2>
+                <p style="text-align: center; color: var(--gray); margin-bottom: 3rem; max-width: 800px; margin-left: auto; margin-right: auto;">
+                    Deploy multiple units for high availability and horizontal scaling with automatic Gateway-Node architecture
+                </p>
+                
+                <div class="config-grid">
+                    <div class="config-card">
+                        <h3>🚀 Deploy Multiple Units</h3>
+                        <pre><code># Deploy with 3 units
+juju deploy openclaw --channel edge -n 3 \
+  --config ai-provider="anthropic" \
+  --config ai-api-key="sk-ant-xxx" \
+  --config ai-model="claude-opus-4-5"
+
+# Wait for deployment
+juju status --watch 1s
+
+# Approve pending Nodes
+juju run openclaw/0 approve-nodes</code></pre>
+                    </div>
+                    
+                    <div class="config-card">
+                        <h3>📊 Status Example</h3>
+                        <pre><code>Unit         Workload  Message
+openclaw/0*  active    Gateway: http://10.47.232.168:18789
+openclaw/1   active    Node - connected to openclaw/0
+openclaw/2   active    Node - connected to openclaw/0</code></pre>
+                    </div>
+                    
+                    <div class="config-card">
+                        <h3>⚙️ How It Works</h3>
+                        <dl class="config-list">
+                            <div class="config-option">
+                                <dt>Leader Unit</dt>
+                                <dd>Runs OpenClaw Gateway (messaging, AI, dashboard)</dd>
+                            </div>
+                            <div class="config-option">
+                                <dt>Non-Leader Units</dt>
+                                <dd>Run OpenClaw Nodes (compute capacity, system access)</dd>
+                            </div>
+                            <div class="config-option">
+                                <dt>Automatic Coordination</dt>
+                                <dd>Units discover each other via peer relations</dd>
+                            </div>
+                            <div class="config-option">
+                                <dt>Device Pairing</dt>
+                                <dd>Nodes require approval via approve-nodes action</dd>
+                            </div>
+                        </dl>
+                    </div>
+                    
+                    <div class="config-card">
+                        <h3>✨ Benefits</h3>
+                        <dl class="config-list">
+                            <div class="config-option">
+                                <dt>High Availability</dt>
+                                <dd>Automatic failover through Juju leader election</dd>
+                            </div>
+                            <div class="config-option">
+                                <dt>Load Distribution</dt>
+                                <dd>Nodes handle system.run across multiple machines</dd>
+                            </div>
+                            <div class="config-option">
+                                <dt>Scalability</dt>
+                                <dd>Add or remove units dynamically</dd>
+                            </div>
+                            <div class="config-option">
+                                <dt>Automatic Recovery</dt>
+                                <dd>New leader elected if Gateway fails</dd>
+                            </div>
+                        </dl>
+                    </div>
+                    
+                    <div class="config-card">
+                        <h3>📈 Scaling Commands</h3>
+                        <pre><code># Scale up
+juju add-unit openclaw -n 2
+juju run openclaw/0 approve-nodes
+
+# Scale down
+juju remove-unit openclaw/2
+
+# Check Node connections
+juju ssh openclaw/0 'openclaw devices list'
+
+# View Node logs
+juju ssh openclaw/1 'journalctl -u openclaw-node.service -n 50'</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
     </main>
     
     <footer>

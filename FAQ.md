@@ -641,9 +641,85 @@ http://localhost:18793/__openclaw__/canvas/
 
 ---
 
+## Can I deploy multiple units for high availability or scaling?
+
+Yes! The OpenClaw charm supports horizontal scaling with automatic Gateway-Node architecture:
+
+```bash
+# Deploy with 3 units
+juju deploy openclaw --channel edge -n 3
+
+# Wait for units to be ready
+juju status --watch 1s
+
+# Approve pending Nodes (new in charm v19+)
+juju run openclaw/0 approve-nodes
+
+# Scale up
+juju add-unit openclaw -n 2
+juju run openclaw/0 approve-nodes
+
+# Scale down
+juju remove-unit openclaw/4
+```
+
+**Status example**:
+```
+Unit         Workload  Message
+openclaw/0*  active    Gateway: http://10.47.232.168:18789
+openclaw/1   active    Node - connected to openclaw/0
+openclaw/2   active    Node - connected to openclaw/0
+```
+
+**How it works**:
+- **Leader unit**: Runs OpenClaw Gateway (handles messaging, AI processing, dashboard)
+- **Non-leader units**: Run OpenClaw Node (provide compute capacity, system access)
+- **Automatic coordination**: Units discover each other via peer relations
+- **Device pairing**: Nodes require approval before connecting (use `approve-nodes` action)
+
+**Benefits**:
+- High availability through Juju leader election
+- Horizontal scaling for increased capacity
+- Distributed compute for `system.run` commands
+- Automatic failover if Gateway unit fails
+
+**Monitoring**:
+```bash
+# Check status of all units
+juju status openclaw
+
+# View Gateway token
+juju run openclaw/0 get-gateway-token
+
+# Check which devices are connected
+juju ssh openclaw/0 'openclaw devices list'
+
+# Check Node service status
+juju ssh openclaw/1 'systemctl status openclaw-node.service'
+
+# View Node logs
+juju ssh openclaw/1 'journalctl -u openclaw-node.service -n 50'
+```
+
+**Troubleshooting Nodes**:
+
+If Nodes show as "pending" and not connected:
+```bash
+# List pending devices
+juju ssh openclaw/0 'openclaw devices list'
+
+# Approve all pending Nodes
+juju run openclaw/0 approve-nodes
+
+# Or manually approve a specific device
+juju ssh openclaw/0 'openclaw devices approve <request-id>'
+```
+
+---
+
 ### Can I run multiple OpenClaw instances?
 
-Yes! Deploy multiple units with different configurations:
+Yes! Deploy multiple independent applications with different configurations:
 
 ```bash
 # Production instance

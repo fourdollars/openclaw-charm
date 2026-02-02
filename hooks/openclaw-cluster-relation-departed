@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$CHARM_DIR/hooks/common.sh"
+
+ROLE="$(get_unit_role)"
+log_info "Peer relation departed - role: $ROLE"
+
+if [ "$ROLE" = "node" ]; then
+    log_warn "Peer departed - Node may lose Gateway connection"
+    status-set blocked "Gateway connection lost"
+fi

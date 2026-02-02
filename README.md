@@ -78,6 +78,20 @@ juju run openclaw/0 get-gateway-token format=json
 juju run openclaw/0 get-gateway-token format=url
 ```
 
+### Approve Nodes
+
+When deploying multiple units, Node devices require approval before they can connect to the Gateway. Use this action to approve all pending Nodes:
+
+```bash
+# Approve all pending Node devices
+juju run openclaw/0 approve-nodes
+
+# Check which devices are pending
+juju ssh openclaw/0 'openclaw devices list'
+```
+
+**Note**: This action only needs to be run on the Gateway unit (leader). New Nodes will automatically appear in the pending list and can be approved at any time.
+
 ---
 
 ## Configuration
@@ -255,9 +269,56 @@ juju config openclaw log-level="debug"
 
 ## Advanced Usage
 
+### Scaling with Multiple Units
+
+OpenClaw charm supports horizontal scaling with automatic Gateway-Node architecture:
+
+```bash
+# Deploy with 3 units
+juju deploy openclaw --channel edge -n 3 \
+  --config ai-provider="anthropic" \
+  --config ai-api-key="sk-ant-xxx" \
+  --config ai-model="claude-opus-4-5"
+
+# Wait for deployment
+juju status --watch 1s
+
+# Approve pending Nodes
+juju run openclaw/0 approve-nodes
+
+# Scale up to 5 units
+juju add-unit openclaw -n 2
+juju run openclaw/0 approve-nodes
+
+# Scale down to 2 units
+juju remove-unit openclaw/2
+```
+
+**Status example**:
+```
+Unit         Workload  Message
+openclaw/0*  active    Gateway: http://10.47.232.168:18789
+openclaw/1   active    Node - connected to openclaw/0
+openclaw/2   active    Node - connected to openclaw/0
+```
+
+**How it works**:
+- **Leader unit** (elected by Juju) runs the OpenClaw Gateway service
+- **Non-leader units** run OpenClaw Node services that connect to the Gateway
+- All units automatically coordinate through peer relations
+- Nodes authenticate using gateway tokens and device pairing
+- Gateway handles all messaging channels and AI processing
+- Nodes provide additional compute capacity and system access
+
+**Benefits**:
+- **High availability**: If Gateway unit fails, Juju elects a new leader
+- **Load distribution**: Nodes can handle system.run commands across multiple machines
+- **Scalability**: Add more nodes for increased capacity
+- **Automatic coordination**: Nodes discover and connect to Gateway automatically
+
 ### Multiple Instances
 
-Deploy multiple OpenClaw instances for different teams or environments:
+Deploy multiple independent OpenClaw instances (separate applications):
 
 ```bash
 # Production instance

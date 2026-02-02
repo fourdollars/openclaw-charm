@@ -1,0 +1,26 @@
+#!/bin/bash
+set -e
+
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$CHARM_DIR/hooks/common.sh"
+
+ROLE="$(get_unit_role)"
+log_info "Peer relation joined - role: $ROLE"
+
+if [ "$ROLE" = "gateway" ]; then
+    port="$(config-get gateway-port)"
+    
+    # For Node connections, always use private-address even if bind is loopback
+    gateway_host=$(unit-get private-address)
+    
+    gateway_token=$(jq -r '.gateway.auth.token // empty' /home/ubuntu/.openclaw/openclaw.json 2>/dev/null || echo '')
+    
+    log_info "Publishing Gateway connection info: ${gateway_host}:${port}"
+    relation-set gateway-host="$gateway_host"
+    relation-set gateway-port="$port"
+    if [ -n "$gateway_token" ]; then
+        relation-set gateway-token="$gateway_token"
+    fi
+else
+    log_info "Non-leader unit joined - will wait for Gateway info"
+fi

@@ -1,50 +1,94 @@
 #!/bin/bash
 set -e
 
-# OpenClaw Juju Charm - Start Hook
-# This hook starts the OpenClaw Gateway service
-
 CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$CHARM_DIR/hooks/common.sh"
 
-log_info "Starting OpenClaw"
+ROLE="$(get_unit_role)"
+log_info "Starting OpenClaw as $ROLE"
 
-status-set maintenance "Starting OpenClaw service"
+status-set maintenance "Starting OpenClaw $ROLE service"
 
-# Validate configuration (non-blocking - will set status to blocked if issues found)
-if ! validate_config; then
-    log_warn "Configuration validation failed - service will start but may not be functional"
-fi
-
-# Generate/update configuration
-generate_config
-
-# Open required ports
-open_ports
-
-# Start the service
-if start_openclaw; then
-    port="$(config-get gateway-port)"
-    bind="$(config-get gateway-bind)"
-    
-    # Determine the IP address to show in status
-    if [ "$bind" = "loopback" ]; then
-        ip="127.0.0.1"
-    else
-        ip=$(unit-get private-address)
+if [ "$ROLE" = "gateway" ]; then
+    if ! validate_config; then
+        log_warn "Configuration validation failed - service will start but may not be functional"
     fi
     
-    url="http://${ip}:${port}"
+    if ! validate_gateway_bind; then
+        status-set blocked "Multi-unit deployment requires gateway-bind=lan (currently: $(config-get gateway-bind))"
+        log_error "Cannot start Gateway with gateway-bind=loopback in multi-unit deployment"
+        exit 1
+    fi
     
-    # Check if configuration is valid and set appropriate status
-    if validate_config; then
-        status-set active "Gateway: $url"
-        log_info "OpenClaw started successfully with valid configuration"
+    generate_config
+    open_ports
+    
+    if start_openclaw; then
+        port="$(config-get gateway-port)"
+        bind="$(config-get gateway-bind)"
+        
+        if [ "$bind" = "loopback" ]; then
+            ip="127.0.0.1"
+        else
+            ip=$(unit-get private-address)
+        fi
+        
+        url="http://${ip}:${port}"
+        
+        gateway_token=$(jq -r '.gateway.auth.token // empty' /home/ubuntu/.openclaw/openclaw.json 2>/dev/null)
+        
+        # For Node connections, always use private-address even if bind is loopback
+        gateway_host=$(unit-get private-address)
+        
+        # Set relation data with relation ID
+        relation_id=$(relation-ids openclaw-cluster 2>/dev/null | head -1)
+        if [ -n "$relation_id" ]; then
+            relation-set -r "$relation_id" gateway-host="$gateway_host" || true
+            relation-set -r "$relation_id" gateway-port="$port" || true
+            if [ -n "$gateway_token" ]; then
+                relation-set -r "$relation_id" gateway-token="$gateway_token" || true
+            fi
+        fi
+        
+        if validate_config; then
+            status-set active "Gateway: $url"
+            log_info "OpenClaw Gateway started successfully with valid configuration"
+        else
+            status-set blocked "Gateway running but configuration incomplete"
+            log_warn "OpenClaw Gateway started but requires valid configuration"
+        fi
     else
-        status-set blocked "OpenClaw running but configuration incomplete (missing API keys or tokens)"
-        log_warn "OpenClaw service started but requires valid configuration"
+        status-set blocked "Failed to start Gateway - check logs"
+        exit 1
     fi
 else
-    status-set blocked "Failed to start OpenClaw - check logs"
-    exit 1
+    if ! generate_node_config; then
+        status-set blocked "Waiting for Gateway connection info from leader"
+        log_info "Node cannot start yet - waiting for Gateway info"
+        exit 0
+    fi
+    
+    if ! create_node_systemd_service; then
+        status-set blocked "Failed to create Node service"
+        exit 1
+    fi
+    
+    if start_openclaw_node; then
+        gateway_unit=""
+        gateway_host=""
+        gateway_port=""
+        gateway_token=""
+        read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
+        
+        if [ -n "$gateway_unit" ] && [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
+            status-set active "Node - connected to ${gateway_unit}"
+            log_info "OpenClaw Node started and connected to Gateway ${gateway_unit}"
+        else
+            status-set active "Node service started"
+            log_info "OpenClaw Node started"
+        fi
+    else
+        status-set blocked "Failed to start Node - check logs"
+        exit 1
+    fi
 fi

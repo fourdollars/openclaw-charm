@@ -1,0 +1,54 @@
+#!/bin/bash
+set -e
+
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$CHARM_DIR/hooks/common.sh"
+
+if ! is_leader; then
+    action-fail "This action can only be run on the Gateway unit (leader)"
+    exit 1
+fi
+
+gateway_host=$(unit-get private-address)
+gateway_port=$(config-get gateway-port)
+gateway_url="ws://${gateway_host}:${gateway_port}"
+gateway_token=$(jq -r '.gateway.auth.token' /home/ubuntu/.openclaw/openclaw.json)
+
+pending_devices=$(openclaw devices list --url "$gateway_url" --token "$gateway_token" --json 2>/dev/null | jq -r '.pending[]? | select(.role=="node") | .requestId' 2>/dev/null || echo "")
+
+if [ -z "$pending_devices" ]; then
+    action-set outcome="success"
+    action-set message="No pending Node devices to approve"
+    action-set approved="0"
+    exit 0
+fi
+
+count=$(echo "$pending_devices" | wc -l)
+
+approved=0
+failed=0
+approved_list=""
+
+while IFS= read -r request_id; do
+    if [ -n "$request_id" ]; then
+        if openclaw devices approve "$request_id" --url "$gateway_url" --token "$gateway_token" >/dev/null 2>&1; then
+            approved=$((approved + 1))
+            approved_list="${approved_list}${request_id} "
+        else
+            failed=$((failed + 1))
+        fi
+    fi
+done <<< "$pending_devices"
+
+if [ $approved -gt 0 ]; then
+    action-set outcome="success"
+    action-set message="Approved ${approved} Node device(s)"
+    action-set approved="$approved"
+    action-set failed="$failed"
+    action-set request-ids="$approved_list"
+else
+    action-set outcome="failure"
+    action-set message="Failed to approve Node devices"
+    action-set approved="0"
+    action-set failed="$count"
+fi

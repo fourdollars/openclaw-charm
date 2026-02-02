@@ -1,21 +1,20 @@
 #!/bin/bash
 set -e
 
-# OpenClaw Juju Charm - Stop Hook
-# This hook stops the OpenClaw Gateway service
-
 CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$CHARM_DIR/hooks/common.sh"
 
-log_info "Stopping OpenClaw"
+ROLE="$(get_unit_role)"
+log_info "Stopping OpenClaw $ROLE"
 
-status-set maintenance "Stopping OpenClaw service"
+status-set maintenance "Stopping OpenClaw $ROLE service"
 
-# Stop the service
-stop_openclaw
+if [ "$ROLE" = "gateway" ]; then
+    stop_openclaw
+    close_ports
+else
+    stop_openclaw_node
+fi
 
-# Close ports
-close_ports
-
-status-set maintenance "OpenClaw stopped"
-log_info "OpenClaw stopped successfully"
+status-set maintenance "OpenClaw $ROLE stopped"
+log_info "OpenClaw $ROLE stopped successfully"

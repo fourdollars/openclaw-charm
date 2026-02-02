@@ -7,7 +7,7 @@ This project provides a complete, production-ready Juju machine charm for deploy
 ### ✅ Completed Components
 
 #### 1. **Juju Machine Charm** ✓
-- **metadata.yaml**: Charm metadata with Noble 24.04 support
+- **metadata.yaml**: Charm metadata with Noble 24.04 support and peer relations
 - **config.yaml**: 18 comprehensive configuration options covering:
   - AI providers (Anthropic, OpenAI, Bedrock, Ollama)
   - Messaging platforms (Telegram, Discord, Slack)
@@ -15,15 +15,17 @@ This project provides a complete, production-ready Juju machine charm for deploy
   - Installation options (npm, pnpm, source)
   - Gateway configuration
 - **charmcraft.yaml**: Build configuration for multi-base support
+- **Multi-unit architecture**: Automatic Gateway-Node deployment pattern
 
 #### 2. **Charm Hooks** ✓
 All hooks are implemented, tested with shellcheck, and fully executable:
 - **install**: Installs Node.js, system dependencies, OpenClaw (npm/pnpm/source)
-- **start**: Validates config, generates OpenClaw configuration, starts service
-- **stop**: Gracefully stops service and closes ports
-- **config-changed**: Handles configuration updates, restarts service
+- **start**: Role-aware startup (Gateway for leader, Node for non-leaders)
+- **stop**: Gracefully stops appropriate service based on role
+- **config-changed**: Handles configuration updates with role differentiation
 - **upgrade-charm**: Handles charm upgrades with optional auto-update
-- **common.sh**: Shared functions for all hooks
+- **openclaw-cluster-relation-***: Peer relation hooks for Gateway-Node coordination
+- **common.sh**: Shared functions including leader detection and role management
 - **Symlinks**: leader-elected → install, leader-settings-changed → config-changed, remove → stop
 
 #### 3. **GitHub Pages Website** ✓
@@ -83,6 +85,49 @@ Beautiful, modern documentation site at `docs/index.html`:
 
 ## 🏗️ Architecture
 
+### Single-Unit Deployment
+When deployed with a single unit, the charm runs OpenClaw Gateway:
+- Manages all messaging channels (Telegram, Discord, Slack, etc.)
+- Handles AI model processing
+- Serves the web dashboard
+- Processes all agent commands
+
+### Multi-Unit Deployment (Gateway + Nodes)
+When scaled to multiple units, the charm automatically adopts a distributed architecture:
+
+**Leader Unit (Gateway)**:
+- Runs `openclaw gateway` service
+- Manages all messaging channels
+- Handles AI processing and agent coordination
+- Exposes Gateway WebSocket on configured port
+- Publishes connection info via peer relation
+
+**Non-Leader Units (Nodes)**:
+- Run `openclaw node` service
+- Connect to leader's Gateway WebSocket
+- Provide distributed compute capacity
+- Expose `system.run` and `system.which` capabilities
+- Scale horizontally for increased capacity
+
+**Architecture Benefits**:
+- **High availability**: Leader election ensures Gateway continuity
+- **Horizontal scaling**: Add nodes for more compute capacity
+- **Automatic coordination**: Peer relations handle Gateway discovery
+- **No manual configuration**: Units auto-configure based on role
+
+**Example deployment**:
+```bash
+# Deploy with 3 units
+juju deploy openclaw --channel edge -n 3
+
+# Result:
+# - openclaw/0: Gateway (leader) - handles messaging and AI
+# - openclaw/1: Node - connected to openclaw/0
+# - openclaw/2: Node - connected to openclaw/0
+```
+
+---
+
 ### Charm Structure
 ```
 openclaw-charm/
@@ -112,23 +157,27 @@ openclaw-charm/
 ```
 
 ### Deployment Flow
+
+**Single Unit Deployment:**
 ```
 User runs: juju deploy openclaw --channel edge --config ai-key="xxx"
            ↓
 1. Install Hook
    • Installs Node.js 22+
    • Installs system dependencies (build-essential, sqlite, chromium)
-   • Creates openclaw system user
+   • Creates ubuntu user workspace
    • Installs OpenClaw (npm/pnpm/source based on config)
-   • Creates systemd service
+   • Creates systemd service (openclaw.service)
            ↓
 2. Start Hook
+   • Detects role: LEADER → Gateway mode
    • Validates AI provider credentials
-   • Generates /home/openclaw/.openclaw/openclaw.json
+   • Generates /home/ubuntu/.openclaw/openclaw.json
    • Configures messaging channels (Telegram, Discord, Slack)
    • Opens gateway port (default 18789)
-   • Starts systemd service
-   • Sets status: "OpenClaw running on port 18789"
+   • Starts systemd service: openclaw gateway
+   • Publishes gateway info via peer relation
+   • Sets status: "Gateway: http://<ip>:18789"
            ↓
 3. Running State
    • OpenClaw Gateway serves WebSocket + HTTP
@@ -145,6 +194,37 @@ User runs: juju deploy openclaw --channel edge --config ai-key="xxx"
    • Optionally updates OpenClaw to latest version
    • Recreates systemd service
    • Restarts service
+```
+
+**Multi-Unit Deployment:**
+```
+User runs: juju deploy openclaw --channel edge -n 3 --config ai-key="xxx"
+           ↓
+Unit 0 (LEADER):
+   • Follows Gateway deployment flow above
+   • Publishes gateway-host, gateway-port, gateway-token
+           ↓
+Units 1, 2 (NON-LEADERS):
+   1. Install Hook
+      • Same as leader: installs dependencies and OpenClaw
+           ↓
+   2. openclaw-cluster-relation-joined
+      • Waits for Gateway connection info from leader
+           ↓
+   3. openclaw-cluster-relation-changed
+      • Receives gateway-host, gateway-port, gateway-token
+      • Generates node configuration
+      • Creates systemd service: openclaw-node.service
+           ↓
+   4. Start Hook
+      • Detects role: NON-LEADER → Node mode
+      • Starts: openclaw node run --host <gateway> --port <port>
+      • Sets status: "Node connected to <gateway>:<port>"
+           ↓
+   5. Running State
+      • Node connects to Gateway WebSocket
+      • Exposes system.run capabilities to Gateway
+      • No messaging channels (Gateway handles those)
 ```
 
 ---

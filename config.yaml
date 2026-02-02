@@ -9,7 +9,10 @@ options:
     default: loopback
     description: |
       Gateway bind mode: 'loopback' (127.0.0.1 only), 'lan' (all interfaces), 
-      or specific IP address
+      or specific IP address.
+      
+      IMPORTANT: Multi-unit deployments REQUIRE 'lan' mode for Node connectivity.
+      The charm will block deployment if loopback mode is used with multiple units.
   
   node-version:
     type: string

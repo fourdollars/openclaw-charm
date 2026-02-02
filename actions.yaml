@@ -6,3 +6,11 @@ get-gateway-token:
       default: "text"
       description: |
         Output format: 'text' (token only), 'json' (structured), or 'url' (tokenized dashboard URL)
+
+approve-nodes:
+  description: Approve all pending Node devices for connection to the Gateway
+  params:
+    auto-approve:
+      type: boolean
+      default: true
+      description: Automatically approve all pending nodes without confirmation

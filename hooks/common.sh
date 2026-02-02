@@ -6,7 +6,7 @@ set -e
 # Logging functions
 log_info() {
     juju-log -l INFO "$1"
-    echo "[INFO] $1"
+    echo "[INFO] $1" >&2
 }
 
 log_error() {
@@ -16,12 +16,119 @@ log_error() {
 
 log_debug() {
     juju-log -l DEBUG "$1"
-    echo "[DEBUG] $1"
+    echo "[DEBUG] $1" >&2
 }
 
 log_warn() {
     juju-log -l WARNING "$1"
     echo "[WARN] $1" >&2
+}
+
+# Check if this unit is the leader
+is_leader() {
+    # is-leader outputs "True" or "False" (case-sensitive)
+    # Juju hook tools may not be in PATH, try both PATH and full path
+    local result
+    result=$(is-leader 2>/dev/null || /var/lib/juju/tools/unit-$(unit-name)/is-leader 2>/dev/null || echo "False")
+    log_debug "is-leader output: $result"
+    
+    if [ "$result" = "True" ]; then
+        echo "true"
+    else
+        echo "false"
+    fi
+}
+
+# Get the role of this unit (gateway or node)
+get_unit_role() {
+    local leader_status
+    leader_status="$(is_leader)"
+    log_debug "Leader status: $leader_status"
+    
+    if [ "$leader_status" = "true" ]; then
+        log_debug "Unit role: gateway"
+        echo "gateway"
+    else
+        log_debug "Unit role: node"
+        echo "node"
+    fi
+}
+
+# Get Gateway connection info from peer relation
+# Returns: gateway_unit gateway_host gateway_port gateway_token (space-separated)
+# Usage: read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
+get_gateway_info() {
+    local gateway_unit="" gateway_host="" gateway_port="" gateway_token="" relation_id
+    
+    # Get the peer relation ID
+    relation_id=$(relation-ids openclaw-cluster 2>/dev/null | head -1)
+    if [ -z "$relation_id" ]; then
+        log_debug "No peer relation found"
+        echo "   "
+        return 1
+    fi
+    
+    # Find the leader unit in the relation (unit that has gateway-host set)
+    for unit in $(relation-list -r "$relation_id" 2>/dev/null); do
+        local test_host
+        test_host="$(relation-get -r "$relation_id" gateway-host "$unit" 2>/dev/null || echo '')"
+        if [ -n "$test_host" ]; then
+            gateway_unit="$unit"
+            gateway_host="$test_host"
+            gateway_port="$(relation-get -r "$relation_id" gateway-port "$unit" 2>/dev/null || echo '')"
+            gateway_token="$(relation-get -r "$relation_id" gateway-token "$unit" 2>/dev/null || echo '')"
+            log_debug "Found Gateway: $unit at ${gateway_host}:${gateway_port}"
+            break
+        fi
+    done
+    
+    echo "$gateway_unit $gateway_host $gateway_port $gateway_token"
+}
+
+# Check if deployment has multiple units
+# Returns: 0 (true) if multiple units exist, 1 (false) otherwise
+is_multi_unit() {
+    local relation_id unit_count
+    relation_id=$(relation-ids openclaw-cluster 2>/dev/null | head -1)
+    
+    if [ -z "$relation_id" ]; then
+        # No peer relation = single unit
+        return 1
+    fi
+    
+    # Count units in relation (including self)
+    unit_count=$(relation-list -r "$relation_id" 2>/dev/null | wc -l)
+    # Add 1 for current unit
+    unit_count=$((unit_count + 1))
+    
+    if [ "$unit_count" -gt 1 ]; then
+        log_debug "Multi-unit deployment detected: $unit_count units"
+        return 0
+    else
+        log_debug "Single-unit deployment"
+        return 1
+    fi
+}
+
+# Validate gateway-bind setting for multi-unit deployments
+# Returns: 0 if valid, 1 if invalid with warning message
+validate_gateway_bind() {
+    local bind
+    bind="$(config-get gateway-bind)"
+    
+    if ! is_multi_unit; then
+        # Single unit - any bind mode is fine
+        return 0
+    fi
+    
+    # Multi-unit deployment - check bind mode
+    if [ "$bind" = "loopback" ]; then
+        log_warn "Multi-unit deployment detected with gateway-bind=loopback - Nodes cannot connect!"
+        log_warn "Recommendation: Set gateway-bind=lan for multi-unit deployments"
+        return 1
+    fi
+    
+    return 0
 }
 
 # Install Node.js using NodeSource repository
@@ -294,6 +401,64 @@ EOF
     log_info "Configuration generated at $config_file"
 }
 
+# Generate OpenClaw Node configuration
+generate_node_config() {
+    local config_file="/home/ubuntu/.openclaw/openclaw-node.json"
+    local gateway_host gateway_port gateway_token
+    local relation_id leader_unit
+    
+    # Get the peer relation ID
+    relation_id=$(relation-ids openclaw-cluster 2>/dev/null | head -1)
+    if [ -z "$relation_id" ]; then
+        log_error "Peer relation not found"
+        return 1
+    fi
+    
+    # Find the leader unit in the relation
+    for unit in $(relation-list -r "$relation_id" 2>/dev/null); do
+        # Check if this unit is the leader by trying to get its gateway-host
+        # The leader will have published this data
+        local test_host
+        test_host="$(relation-get -r "$relation_id" gateway-host "$unit" 2>/dev/null || echo '')"
+        if [ -n "$test_host" ]; then
+            leader_unit="$unit"
+            break
+        fi
+    done
+    
+    if [ -z "$leader_unit" ]; then
+        log_error "Gateway connection info not available from leader"
+        return 1
+    fi
+    
+    gateway_host="$(relation-get -r "$relation_id" gateway-host "$leader_unit" 2>/dev/null || echo '')"
+    gateway_port="$(relation-get -r "$relation_id" gateway-port "$leader_unit" 2>/dev/null || echo '')"
+    gateway_token="$(relation-get -r "$relation_id" gateway-token "$leader_unit" 2>/dev/null || echo '')"
+    
+    if [ -z "$gateway_host" ] || [ -z "$gateway_port" ]; then
+        log_error "Gateway connection info incomplete"
+        return 1
+    fi
+    
+    log_info "Generating OpenClaw Node configuration (gateway: ${gateway_host}:${gateway_port})"
+    
+    mkdir -p /home/ubuntu/.openclaw
+    cat > "$config_file" <<EOF
+{
+  "gateway": {
+    "host": "${gateway_host}",
+    "port": ${gateway_port},
+    "token": "${gateway_token}"
+  }
+}
+EOF
+    
+    chown ubuntu:ubuntu "$config_file"
+    chmod 600 "$config_file"
+    
+    log_info "Node configuration generated at $config_file"
+}
+
 # Create systemd service
 create_systemd_service() {
     local service_file="/etc/systemd/system/openclaw.service"
@@ -340,6 +505,62 @@ EOF
     log_info "Systemd service created and enabled"
 }
 
+# Create systemd service for OpenClaw Node
+create_node_systemd_service() {
+    local service_file="/etc/systemd/system/openclaw-node.service"
+    local gateway_unit gateway_host gateway_port gateway_token
+    
+    read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
+    
+    if [ -z "$gateway_host" ] || [ -z "$gateway_port" ]; then
+        log_error "Gateway connection info not available from leader"
+        return 1
+    fi
+    
+    if [ -z "$gateway_token" ]; then
+        log_warn "Gateway token not available - Node may fail to authenticate"
+    fi
+    
+    log_info "Creating OpenClaw Node systemd service (connecting to ${gateway_host}:${gateway_port})"
+    
+    cat > "$service_file" <<EOF
+[Unit]
+Description=OpenClaw Node - Remote Capabilities Host
+Documentation=https://docs.openclaw.ai
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu
+Environment="OPENCLAW_GATEWAY_TOKEN=${gateway_token}"
+ExecStart=/usr/bin/env openclaw node run --host ${gateway_host} --port ${gateway_port}
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=openclaw-node
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/ubuntu/.openclaw
+
+LimitNOFILE=65535
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    
+    systemctl daemon-reload
+    systemctl enable openclaw-node.service
+    
+    log_info "Node systemd service created and enabled"
+}
+
 # Start OpenClaw service
 start_openclaw() {
     log_info "Starting OpenClaw service"
@@ -378,6 +599,46 @@ restart_openclaw() {
     else
         log_error "OpenClaw service failed to restart"
         systemctl status openclaw.service || true
+        return 1
+    fi
+}
+
+# Start OpenClaw Node service
+start_openclaw_node() {
+    log_info "Starting OpenClaw Node service"
+    systemctl start openclaw-node.service
+    
+    sleep 5
+    
+    if systemctl is-active --quiet openclaw-node.service; then
+        log_info "OpenClaw Node service started successfully"
+        return 0
+    else
+        log_error "OpenClaw Node service failed to start"
+        systemctl status openclaw-node.service || true
+        return 1
+    fi
+}
+
+# Stop OpenClaw Node service
+stop_openclaw_node() {
+    log_info "Stopping OpenClaw Node service"
+    systemctl stop openclaw-node.service || true
+}
+
+# Restart OpenClaw Node service
+restart_openclaw_node() {
+    log_info "Restarting OpenClaw Node service"
+    systemctl restart openclaw-node.service
+    
+    sleep 5
+    
+    if systemctl is-active --quiet openclaw-node.service; then
+        log_info "OpenClaw Node service restarted successfully"
+        return 0
+    else
+        log_error "OpenClaw Node service failed to restart"
+        systemctl status openclaw-node.service || true
         return 1
     fi
 }
