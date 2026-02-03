@@ -54,13 +54,20 @@ if [ "$ROLE" = "gateway" ]; then
         # This solves the chicken-and-egg problem where gateway needs an operator to function
         log_info "Checking for operator device bootstrap..."
         if [ -x "/usr/local/bin/openclaw-bootstrap-operator" ]; then
-            # Wait for gateway to be fully started
-            sleep 3
+            # Wait for gateway to be fully started (increased from 3s to 10s)
+            log_info "Waiting 10 seconds for gateway to fully start..."
+            sleep 10
             
             # Trigger operator device creation by attempting a CLI command
+            # This will create the operator device request in pending.json
+            log_info "Triggering operator device request via CLI..."
             sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use ${NODE_VERSION:-24} >/dev/null 2>&1 && openclaw devices list >/dev/null 2>&1" || true
             
-            # Run bootstrap script
+            # Give a moment for the device request to be written to pending.json
+            sleep 2
+            
+            # Run bootstrap script (will wait up to 60s for operator device)
+            log_info "Running bootstrap script..."
             if sudo -u ubuntu /usr/local/bin/openclaw-bootstrap-operator; then
                 log_info "Operator device bootstrapped successfully - restarting gateway"
                 # Restart gateway to load the paired operator device

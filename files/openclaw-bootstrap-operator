@@ -5,7 +5,7 @@
 
 set -e
 
-MAX_WAIT=30
+MAX_WAIT=60
 WAIT_INTERVAL=2
 OPENCLAW_DIR="/home/ubuntu/.openclaw"
 PENDING_FILE="$OPENCLAW_DIR/devices/pending.json"
@@ -58,7 +58,7 @@ bootstrap_operator() {
     echo "{\"$device_id\": $operator_data}" > "$PAIRED_FILE"
     
     # Remove from pending.json
-    jq "del([\"$operator_req_id\"])" "$PENDING_FILE" > "$PENDING_FILE.tmp"
+    jq "del(.[\"$operator_req_id\"])" "$PENDING_FILE" > "$PENDING_FILE.tmp"
     mv "$PENDING_FILE.tmp" "$PENDING_FILE"
     
     log "✓ Operator device paired successfully"
