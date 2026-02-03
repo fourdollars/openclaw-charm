@@ -376,6 +376,11 @@ OPENCLAW_GATEWAY_PORT=${gateway_port}
 OPENCLAW_GATEWAY_BIND=${gateway_bind}
 EOF
     
+    # Add Bun to PATH if installed
+    if [ -d "/home/ubuntu/.bun" ]; then
+        echo 'PATH=/home/ubuntu/.bun/bin:$PATH' >> "$env_file"
+    fi
+    
     # Set API key based on provider (legacy environment variable support)
     if [ -n "$api_key" ]; then
         case "$ai_provider" in
