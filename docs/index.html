@@ -4,11 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Juju Charm for OpenClaw - Deploy your self-hosted AI assistant with ease">
+    <meta name="keywords" content="OpenClaw, Juju, Charm, AI Assistant, Self-Hosted, Deployment">
+    <meta name="author" content="OpenClaw Charm Team">
     <title>Juju Charm for OpenClaw</title>
+    
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    
     <style>
+        /* ========================================
+           CSS VARIABLES - Color Palette & Theme
+           ======================================== */
         :root {
             --primary: #ef4444;
             --primary-dark: #dc2626;
@@ -22,6 +30,9 @@
             --warning: #f59e0b;
         }
         
+        /* ========================================
+           RESET & BASE STYLES
+           ======================================== */
         * {
             margin: 0;
             padding: 0;
@@ -36,7 +47,9 @@
             overflow-x: hidden;
         }
         
-        /* Animated gradient background */
+        /* ========================================
+           ANIMATED GRADIENT BACKGROUND
+           ======================================== */
         .bg-gradient {
             position: fixed;
             top: 0;
@@ -54,6 +67,7 @@
             left: -50%;
             width: 200%;
             height: 200%;
+            /* Multiple radial gradients for depth effect */
             background: 
                 radial-gradient(circle at 20% 50%, rgba(239, 68, 68, 0.15) 0%, transparent 50%),
                 radial-gradient(circle at 80% 80%, rgba(249, 115, 22, 0.15) 0%, transparent 50%),
@@ -61,19 +75,24 @@
             animation: float 20s ease-in-out infinite;
         }
         
+        /* Floating animation for background gradients */
         @keyframes float {
             0%, 100% { transform: translate(0, 0) rotate(0deg); }
             33% { transform: translate(30px, -30px) rotate(120deg); }
             66% { transform: translate(-20px, 20px) rotate(240deg); }
         }
         
-        .container {
+        /* ========================================
+           LAYOUT CONTAINER
+           ======================================== */
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 2rem;
         }
         
-        /* Header */
+        /* ========================================
+           HEADER & NAVIGATION
+           ======================================== */
         header {
             padding: 2rem 0;
             position: relative;
@@ -111,7 +130,9 @@
             color: white;
         }
         
-        /* Hero Section */
+        /* ========================================
+           HERO SECTION
+           ======================================== */
         .hero {
             padding: 6rem 0 8rem;
             text-align: center;
@@ -187,7 +208,9 @@
             border-color: rgba(255, 255, 255, 0.3);
         }
         
-        /* Code block */
+        /* ========================================
+           CODE BLOCKS
+           ======================================== */
         .code-block {
             background: var(--dark-light);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -199,6 +222,7 @@
             overflow: hidden;
         }
         
+        /* Top gradient border effect */
         .code-block::before {
             content: '';
             position: absolute;
@@ -220,7 +244,9 @@
             color: var(--primary);
         }
         
-        /* Features Section */
+        /* ========================================
+           FEATURES SECTION
+           ======================================== */
         .features {
             padding: 6rem 0;
         }
@@ -282,7 +308,9 @@
             color: var(--gray);
         }
         
-        /* Installation Section */
+        /* ========================================
+           INSTALLATION SECTION
+           ======================================== */
         .installation {
             padding: 6rem 0;
             background: rgba(0, 0, 0, 0.2);
@@ -338,7 +366,9 @@
             overflow-x: auto;
         }
         
-        /* Configuration Section */
+        /* ========================================
+           CONFIGURATION SECTION
+           ======================================== */
         .configuration {
             padding: 6rem 0;
         }
@@ -390,7 +420,9 @@
             font-size: 0.875rem;
         }
         
-        /* Footer */
+        /* ========================================
+           FOOTER
+           ======================================== */
         footer {
             padding: 4rem 0 2rem;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -420,7 +452,9 @@
             font-size: 0.875rem;
         }
         
-        /* Responsive */
+        /* ========================================
+           RESPONSIVE DESIGN - Mobile & Tablet
+           ======================================== */
         @media (max-width: 768px) {
             .hero h1 {
                 font-size: 2.5rem;
@@ -437,7 +471,9 @@
             }
         }
         
-        /* Badges */
+        /* ========================================
+           BADGES
+           ======================================== */
         .badges {
             display: flex;
             gap: 0.5rem;
@@ -459,8 +495,10 @@
     </style>
 </head>
 <body>
+    <!-- Animated Gradient Background -->
     <div class="bg-gradient"></div>
     
+    <!-- Header & Navigation -->
     <header>
         <nav class="container">
             <div class="logo">🦞 OpenClaw Charm (edge)</div>
@@ -473,7 +511,9 @@
         </nav>
     </header>
     
+    <!-- Main Content -->
     <main>
+        <!-- Hero Section -->
         <section class="hero">
             <div class="container">
                 <h1>Juju Charm for<br><span class="gradient-text">OpenClaw</span></h1>
@@ -520,6 +560,7 @@ juju config openclaw \
             </div>
         </section>
         
+        <!-- Features Section -->
         <section id="features" class="features">
             <div class="container">
                 <h2 class="section-title">Charm Features</h2>
@@ -583,6 +624,7 @@ juju config openclaw \
             </div>
         </section>
         
+        <!-- Installation / Quick Start Section -->
         <section id="installation" class="installation">
             <div class="container">
                 <h2 class="section-title">Quick Start</h2>
@@ -628,6 +670,7 @@ juju config openclaw \
             </div>
         </section>
         
+        <!-- Configuration Options Section -->
         <section id="configuration" class="configuration">
             <div class="container">
                 <h2 class="section-title">Configuration Options</h2>
@@ -851,6 +894,7 @@ juju ssh openclaw/1 'journalctl -u openclaw-node.service -n 50'</code></pre>
         </section>
     </main>
     
+    <!-- Footer -->
     <footer>
         <div class="container">
             <div class="footer-links">

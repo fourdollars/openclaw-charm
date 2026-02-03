@@ -1,5 +1,46 @@
 # OpenClaw Charm - Frequently Asked Questions (FAQ)
 
+## Table of Contents
+
+- [Getting Started](#getting-started)
+  - [How do I get the gateway token?](#how-do-i-get-the-gateway-token)
+- [Remote Access](#remote-access)
+  - [How do I access the gateway remotely?](#how-do-i-access-the-gateway-remotely)
+  - [Why do I get "disconnected (1008): control ui requires HTTPS or localhost"?](#why-do-i-get-disconnected-1008-control-ui-requires-https-or-localhost)
+  - [Why do I get "disconnected (1008): unauthorized: gateway token missing"?](#why-do-i-get-disconnected-1008-unauthorized-gateway-token-missing)
+  - [Can I disable the token requirement?](#can-i-disable-the-token-requirement)
+- [Configuration](#configuration)
+  - [How do I change the gateway port?](#how-do-i-change-the-gateway-port)
+  - [How do I bind the gateway to all network interfaces?](#how-do-i-bind-the-gateway-to-all-network-interfaces)
+  - [How do I enable a messaging platform?](#how-do-i-enable-a-messaging-platform)
+  - [How do I approve pairing requests (Telegram/LINE)?](#how-do-i-approve-pairing-requests-telegramline)
+  - [Telegram bot not receiving messages?](#telegram-bot-not-receiving-messages)
+  - [How do I use the OpenClaw CLI?](#how-do-i-use-the-openclaw-cli)
+  - [How do I change the AI model?](#how-do-i-change-the-ai-model)
+  - [How do I configure multiple AI models?](#how-do-i-configure-multiple-ai-models)
+- [Troubleshooting](#troubleshooting)
+  - [The gateway service won't start](#the-gateway-service-wont-start)
+  - [Chat not responding / "No API key found for provider" error](#chat-not-responding--no-api-key-found-for-provider-error)
+  - [How do I check if the gateway is accessible?](#how-do-i-check-if-the-gateway-is-accessible)
+  - [The gateway is running but I can't connect](#the-gateway-is-running-but-i-cant-connect)
+  - [How do I reset the gateway token?](#how-do-i-reset-the-gateway-token)
+  - [How do I enable browser automation?](#how-do-i-enable-browser-automation)
+  - [How do I view OpenClaw version?](#how-do-i-view-openclaw-version)
+  - [How do I upgrade OpenClaw?](#how-do-i-upgrade-openclaw)
+- [Advanced](#advanced)
+  - [How do I use a different JavaScript runtime?](#how-do-i-use-a-different-javascript-runtime)
+  - [How do I access the Canvas host?](#how-do-i-access-the-canvas-host)
+  - [Can I deploy multiple units for high availability or scaling?](#can-i-deploy-multiple-units-for-high-availability-or-scaling)
+  - [Can I run multiple OpenClaw instances?](#can-i-run-multiple-openclaw-instances)
+  - [How do I backup OpenClaw data?](#how-do-i-backup-openclaw-data)
+  - [How do I access OpenClaw logs?](#how-do-i-access-openclaw-logs)
+- [Getting Help](#getting-help)
+  - [Where can I find more documentation?](#where-can-i-find-more-documentation)
+  - [How do I report a bug?](#how-do-i-report-a-bug)
+- [Quick Reference](#quick-reference)
+
+---
+
 ## Getting Started
 
 ### How do I get the gateway token?
@@ -51,29 +92,32 @@ http://localhost:18789/?token=YOUR_TOKEN_HERE
 **Step-by-step:**
 
 1. **Open terminal and create tunnel:**
+
    ```bash
    ssh -L 18789:127.0.0.1:18789 ubuntu@<gateway-ip>
    ```
+   
    Keep this terminal open while using the gateway.
 
 2. **In another terminal, get the tokenized URL:**
+
    ```bash
    juju run openclaw/0 get-gateway-token format=url
    ```
 
 3. **Replace the IP with `localhost` and open in browser:**
+
    ```
    http://localhost:18789/?token=<your-token>
    ```
 
 4. **Access the chat interface:**
+
    ```
    http://localhost:18789/chat?session=main
    ```
 
 The tunnel must stay active while you're using the gateway. Close the SSH session to close the tunnel.
-
----
 
 #### **Option 2: Multiple Port Forwarding**
 
@@ -86,8 +130,6 @@ ssh -L 18789:127.0.0.1:18789 \
 ```
 
 This forwards both the gateway (18789) and canvas host (18793) ports.
-
----
 
 #### **Option 3: SSH Config File (Persistent Setup)**
 
@@ -105,8 +147,6 @@ Then simply connect with:
 ```bash
 ssh openclaw
 ```
-
----
 
 #### **Option 4: Reverse SSH Tunnel (Advanced)**
 
@@ -179,17 +219,22 @@ This allows access from other machines on your network (without SSH tunnel). **N
 
 ### How do I enable a messaging platform?
 
+Configure messaging platform credentials:
+
 **Telegram:**
+
 ```bash
 juju config openclaw telegram-bot-token="YOUR_TELEGRAM_BOT_TOKEN"
 ```
 
 **Discord:**
+
 ```bash
 juju config openclaw discord-bot-token="YOUR_DISCORD_BOT_TOKEN"
 ```
 
 **Slack:**
+
 ```bash
 juju config openclaw \
   slack-bot-token="xoxb-YOUR-BOT-TOKEN" \
@@ -197,6 +242,7 @@ juju config openclaw \
 ```
 
 **LINE:**
+
 ```bash
 juju config openclaw \
   line-channel-access-token="YOUR-CHANNEL-ACCESS-TOKEN" \
@@ -232,8 +278,6 @@ Get your LINE credentials from the [LINE Developers Console](https://developers.
 
 ### How do I approve pairing requests (Telegram/LINE)?
 
-### How do I approve pairing requests (Telegram/LINE)?
-
 When a user sends a message to your bot for the first time, OpenClaw requires pairing approval for security (DM policy is set to "pairing" by default for both Telegram and LINE).
 
 **You'll see a pairing code in the message**, like: `Your pairing code is: U78G2QQE`
@@ -241,11 +285,13 @@ When a user sends a message to your bot for the first time, OpenClaw requires pa
 **To approve the pairing:**
 
 1. **SSH into the OpenClaw unit:**
+
    ```bash
    juju ssh openclaw/0
    ```
 
 2. **Approve the pairing using the code:**
+
    ```bash
    # For Telegram
    openclaw pairing approve telegram U78G2QQE
@@ -255,6 +301,7 @@ When a user sends a message to your bot for the first time, OpenClaw requires pa
    ```
 
 3. **Verify it was approved:**
+
    ```bash
    # For Telegram
    openclaw pairing list telegram
@@ -301,24 +348,26 @@ If you configure Telegram but don't receive messages, check for webhook conflict
 **Solution:**
 
 1. **Delete the webhook:**
+
    ```bash
    # Replace with your bot token
    curl "https://api.telegram.org/bot<YOUR_BOT_TOKEN>/deleteWebhook"
    ```
 
 2. **Restart OpenClaw service:**
+
    ```bash
    juju ssh openclaw/0 'sudo systemctl restart openclaw.service'
    ```
 
 3. **Verify it's working:**
+
    ```bash
    juju ssh openclaw/0 'sudo journalctl -u openclaw.service -n 20 | grep telegram'
    ```
 
-You should see `[telegram] [default] starting provider (@YourBotName)` without any errors.
-
 **Why does this happen?**
+
 Telegram bots can use either **webhooks** OR **polling** (getUpdates), but not both. If your bot was previously configured with a webhook (from another service), OpenClaw's polling mode will conflict with it.
 
 ---
@@ -439,22 +488,28 @@ juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/agents/main/agent/auth-profiles.
 
 ### The gateway service won't start
 
+Follow these troubleshooting steps:
+
 1. **Check service status:**
+
    ```bash
    juju ssh openclaw/0 'sudo systemctl status openclaw.service'
    ```
 
 2. **View logs:**
+
    ```bash
    juju ssh openclaw/0 'sudo journalctl -u openclaw.service -n 100'
    ```
 
 3. **Verify configuration:**
+
    ```bash
    juju ssh openclaw/0 'cat ~/.openclaw/openclaw.json'
    ```
 
 4. **Run OpenClaw doctor:**
+
    ```bash
    juju ssh openclaw/0 'openclaw doctor --fix'
    ```
@@ -536,7 +591,10 @@ juju ssh openclaw/0 'sudo ss -tlnp | grep 18789'
 
 ### The gateway is running but I can't connect
 
+Follow these steps:
+
 1. **Check bind mode:**
+
    ```bash
    juju config openclaw gateway-bind
    ```
@@ -544,11 +602,13 @@ juju ssh openclaw/0 'sudo ss -tlnp | grep 18789'
    If it's `loopback`, the gateway only accepts local connections. Use SSH tunnel or change to `lan`.
 
 2. **Check firewall:**
+
    ```bash
    juju ssh openclaw/0 'sudo ufw status'
    ```
 
 3. **Verify token:**
+
    ```bash
    juju run openclaw/0 get-gateway-token
    ```
@@ -575,6 +635,7 @@ juju run openclaw/0 get-gateway-token
 Browser automation (Playwright) is disabled by default to reduce installation time and disk usage.
 
 **Enable browser automation:**
+
 ```bash
 juju config openclaw enable-browser-tool=true
 ```
@@ -582,6 +643,7 @@ juju config openclaw enable-browser-tool=true
 This will automatically install Google Chrome and enable browser automation features.
 
 **Features enabled:**
+
 - Web browsing and navigation
 - Screenshot capture
 - Form automation
@@ -589,12 +651,15 @@ This will automatically install Google Chrome and enable browser automation feat
 - Headless browser testing
 
 **Post-deployment configuration:**
+
 You can enable browser automation **at any time** - it works both during initial deployment and after the charm is already running. The charm will automatically install Chrome when you set this option to `true`.
 
 **For multi-unit deployments:**
+
 Chrome will be installed on all units (both Gateway and Nodes) to ensure browser commands can run anywhere.
 
 **Verification:**
+
 ```bash
 # Check if Chrome is installed
 juju ssh openclaw/0 'google-chrome --version'
@@ -606,11 +671,12 @@ juju ssh openclaw/0 'journalctl -u openclaw.service | grep "browser/service"'
 You should see: `Browser control service ready (profiles=2)`
 
 **Disable browser automation:**
+
 ```bash
 juju config openclaw enable-browser-tool=false
 ```
 
-Note: Disabling will not uninstall Chrome, but OpenClaw will stop advertising browser capabilities.
+**Note:** Disabling will not uninstall Chrome, but OpenClaw will stop advertising browser capabilities.
 
 ---
 
@@ -694,7 +760,8 @@ juju run openclaw/0 approve-nodes
 juju remove-unit openclaw/4
 ```
 
-**Status example**:
+**Status example:**
+
 ```
 Unit         Workload  Message
 openclaw/0*  active    Gateway: http://10.47.232.168:18789
@@ -702,19 +769,22 @@ openclaw/1   active    Node - connected to openclaw/0
 openclaw/2   active    Node - connected to openclaw/0
 ```
 
-**How it works**:
+**How it works:**
+
 - **Leader unit**: Runs OpenClaw Gateway (handles messaging, AI processing, dashboard)
 - **Non-leader units**: Run OpenClaw Node (provide compute capacity, system access)
 - **Automatic coordination**: Units discover each other via peer relations
 - **Device pairing**: Nodes require approval before connecting (use `approve-nodes` action)
 
-**Benefits**:
+**Benefits:**
+
 - High availability through Juju leader election
 - Horizontal scaling for increased capacity
 - Distributed compute for `system.run` commands
 - Automatic failover if Gateway unit fails
 
-**Monitoring**:
+**Monitoring:**
+
 ```bash
 # Check status of all units
 juju status openclaw
@@ -732,9 +802,10 @@ juju ssh openclaw/1 'systemctl status openclaw-node.service'
 juju ssh openclaw/1 'journalctl -u openclaw-node.service -n 50'
 ```
 
-**Troubleshooting Nodes**:
+**Troubleshooting Nodes:**
 
 If Nodes show as "pending" and not connected:
+
 ```bash
 # List pending devices
 juju ssh openclaw/0 'openclaw devices list'
@@ -784,6 +855,7 @@ juju run openclaw/0 backup wait-timeout=60
 ```
 
 The backup action will:
+
 - ✅ Wait for active processes to complete (graceful)
 - ✅ Stop the service safely
 - ✅ Create a timestamped compressed archive
@@ -791,6 +863,7 @@ The backup action will:
 - ✅ Set proper file permissions
 
 **What gets backed up:**
+
 - Conversation sessions and history
 - Memory and workspace files
 - AI model configurations
@@ -798,12 +871,14 @@ The backup action will:
 - OpenClaw configuration
 
 **Download the backup:**
+
 ```bash
 # Copy backup to your local machine
 juju scp openclaw/0:/tmp/openclaw-backup-TIMESTAMP.tar.gz .
 ```
 
 **Manual backup (alternative method):**
+
 ```bash
 # Stop service first
 juju ssh openclaw/0 'sudo systemctl stop openclaw.service'
@@ -819,6 +894,7 @@ juju scp openclaw/0:~/openclaw-backup.tar.gz .
 ```
 
 **Restore from backup:**
+
 ```bash
 # Upload backup to unit
 juju scp openclaw-backup-TIMESTAMP.tar.gz openclaw/0:/tmp/
@@ -873,12 +949,16 @@ juju debug-log --replay --include openclaw
 
 ### Where can I find more documentation?
 
+Official documentation resources:
+
 - **OpenClaw Official Docs:** https://docs.openclaw.ai
 - **OpenClaw GitHub:** https://github.com/openclaw/openclaw
 - **Charm Repository:** https://github.com/fourdollars/openclaw-charm
 - **CharmHub:** https://charmhub.io/openclaw
 
 ### How do I report a bug?
+
+Report charm-related issues:
 
 Please report charm-related issues at:
 https://github.com/fourdollars/openclaw-charm/issues

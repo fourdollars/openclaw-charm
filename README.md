@@ -63,6 +63,8 @@ Access the OpenClaw Gateway at `http://<unit-ip>:18789`
 
 ## Actions
 
+The OpenClaw charm provides several actions for managing your deployment.
+
 ### Get Gateway Token
 
 Retrieve the authentication token for accessing the OpenClaw Gateway:
@@ -132,6 +134,7 @@ status: success
 ```
 
 **Restore from backup:**
+
 ```bash
 # Stop OpenClaw service
 juju ssh openclaw/0 'sudo systemctl stop openclaw.service'
@@ -149,7 +152,10 @@ juju ssh openclaw/0 'sudo systemctl start openclaw.service'
 
 ### AI Provider Setup
 
+Configure your preferred AI provider using the following examples:
+
 **Anthropic Claude (Recommended)**
+
 ```bash
 juju config openclaw \
   ai-provider="anthropic" \
@@ -158,6 +164,7 @@ juju config openclaw \
 ```
 
 **OpenAI**
+
 ```bash
 juju config openclaw \
   ai-provider="openai" \
@@ -166,6 +173,7 @@ juju config openclaw \
 ```
 
 **Google Gemini**
+
 ```bash
 juju config openclaw \
   ai-provider="google" \
@@ -174,6 +182,7 @@ juju config openclaw \
 ```
 
 **Local Models (Ollama)**
+
 ```bash
 juju config openclaw \
   ai-provider="ollama" \
@@ -184,7 +193,8 @@ juju config openclaw \
 
 OpenClaw Charm supports configuring up to 11 AI models simultaneously (1 primary + 10 additional slots). This enables model switching, fallback, and specialized model usage for different tasks.
 
-**Configure Additional AI Models**
+**Configure Additional AI Models:**
+
 ```bash
 # Configure primary AI model
 juju config openclaw \
@@ -209,7 +219,8 @@ juju config openclaw \
   ai2-api-key="sk-ant-yyy"
 ```
 
-**All AI Slots**
+**All AI Slots:**
+
 - Primary: `ai-provider`, `ai-model`, `ai-api-key`
 - Slot 0: `ai0-provider`, `ai0-model`, `ai0-api-key`
 - Slot 1: `ai1-provider`, `ai1-model`, `ai1-api-key`
@@ -222,35 +233,42 @@ juju config openclaw \
 - Slot 8: `ai8-provider`, `ai8-model`, `ai8-api-key`
 - Slot 9: `ai9-provider`, `ai9-model`, `ai9-api-key`
 
-Each slot requires all three parameters (provider, model, api-key) to be configured. Partially configured slots will trigger validation errors.
+**Note:** Each slot requires all three parameters (provider, model, api-key) to be configured. Partially configured slots will trigger validation errors.
 
 ### Messaging Channels
 
-**Enable Telegram**
+Configure messaging platform integrations:
+
+**Enable Telegram:**
+
 ```bash
 juju config openclaw telegram-bot-token="123456:ABC-DEF"
 ```
 
-**Enable Discord**
+**Enable Discord:**
+
 ```bash
 juju config openclaw discord-bot-token="YOUR.DISCORD.TOKEN"
 ```
 
-**Enable Slack**
+**Enable Slack:**
+
 ```bash
 juju config openclaw \
   slack-bot-token="xoxb-xxx" \
   slack-app-token="xapp-xxx"
 ```
 
-**Enable LINE**
+**Enable LINE:**
+
 ```bash
 juju config openclaw \
   line-channel-access-token="YOUR-CHANNEL-ACCESS-TOKEN" \
   line-channel-secret="YOUR-CHANNEL-SECRET"
 ```
 
-**Enable Multiple Platforms Simultaneously**
+**Enable Multiple Platforms Simultaneously:**
+
 ```bash
 juju config openclaw \
   telegram-bot-token="123456:ABC-DEF" \
@@ -348,7 +366,8 @@ juju run openclaw/0 approve-nodes
 juju remove-unit openclaw/2
 ```
 
-**Status example**:
+**Status example:**
+
 ```
 Unit         Workload  Message
 openclaw/0*  active    Gateway: http://10.47.232.168:18789
@@ -356,7 +375,7 @@ openclaw/1   active    Node - connected to openclaw/0
 openclaw/2   active    Node - connected to openclaw/0
 ```
 
-**How it works**:
+**How it works:**
 - **Leader unit** (elected by Juju) runs the OpenClaw Gateway service
 - **Non-leader units** run OpenClaw Node services that connect to the Gateway
 - All units automatically coordinate through peer relations
@@ -364,7 +383,8 @@ openclaw/2   active    Node - connected to openclaw/0
 - Gateway handles all messaging channels and AI processing
 - Nodes provide additional compute capacity and system access
 
-**Benefits**:
+**Benefits:**
+
 - **High availability**: If Gateway unit fails, Juju elects a new leader
 - **Load distribution**: Nodes can handle system.run commands across multiple machines
 - **Scalability**: Add more nodes for increased capacity
@@ -386,30 +406,37 @@ juju deploy openclaw openclaw-dev \
 
 ### Custom Installation
 
-**Install using Bun**
+Choose your preferred installation method:
+
+**Install using Bun:**
+
 ```bash
 juju config openclaw install-method="bun"
 ```
 
-**Install using pnpm**
+**Install using pnpm:**
+
 ```bash
 juju config openclaw install-method="pnpm"
 ```
 
-**Install from source**
+**Install from source:**
+
 ```bash
 juju config openclaw \
   install-method="source" \
   version="main"
 ```
 
-**Pin to specific version**
+**Pin to specific version:**
+
 ```bash
 juju config openclaw \
   version="2026.1.29"
 ```
 
-**Enable auto-updates**
+**Enable auto-updates:**
+
 ```bash
 juju config openclaw auto-update=true
 ```
@@ -446,17 +473,20 @@ juju ssh openclaw/0 'journalctl -u openclaw.service -f'
 
 ### Common Issues
 
-**Service won't start**
+**Service won't start:**
+
 - Verify API keys are configured correctly
 - Check logs: `juju debug-log --replay --include openclaw`
 - Ensure Node.js 22+ is installed: `juju ssh openclaw/0 'node --version'`
 
-**Cannot access gateway**
+**Cannot access gateway:**
+
 - Check port is open: `juju ssh openclaw/0 'ss -tulpn | grep 18789'`
 - Verify gateway-bind setting: `juju config openclaw gateway-bind`
 - Check firewall rules on the host
 
-**Messaging channels not working**
+**Messaging channels not working:**
+
 - Verify channel tokens are correct
 - Check channel configuration: `juju ssh openclaw/0 'cat /home/openclaw/.openclaw/openclaw.json'`
 - Review OpenClaw logs for connection errors
@@ -530,6 +560,7 @@ This charm includes comprehensive CI/CD workflows:
 ### Test Workflow (`test.yaml`)
 
 Runs on every push and PR:
+
 - **Lint**: Validates shell scripts and metadata
 - **Install Test**: Deploys charm with both npm and pnpm methods on Noble 24.04
 - **Channel Test**: Verifies messaging channel configuration
@@ -538,6 +569,7 @@ Runs on every push and PR:
 ### Publish Workflow (`publish.yaml`)
 
 Triggered on version tags:
+
 1. Builds and packs the charm
 2. Uploads to CharmHub
 3. Releases to appropriate channel:
@@ -566,6 +598,7 @@ Contributions are welcome! Please:
 ### Reporting Issues
 
 Found a bug? [Open an issue](https://github.com/fourdollars/openclaw-charm/issues) with:
+
 - Juju version (`juju version`)
 - Charm version (`juju status openclaw`)
 - Steps to reproduce
@@ -580,6 +613,8 @@ Found a bug? [Open an issue](https://github.com/fourdollars/openclaw-charm/issue
 Please report security vulnerabilities privately to [fourdollars+security@gmail.com](mailto:fourdollars+security@gmail.com).
 
 ### Best Practices
+
+Follow these security best practices:
 
 - **Use pairing mode** for DM access (`dm-policy="pairing"`)
 - **Enable sandboxing** for non-main sessions
