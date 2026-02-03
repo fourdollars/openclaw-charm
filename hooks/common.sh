@@ -542,7 +542,7 @@ create_systemd_service() {
     if [ -d "/home/ubuntu/.nvm" ]; then
         exec_start="/home/ubuntu/.nvm/nvm-exec openclaw gateway --verbose"
     elif [ -d "/home/ubuntu/.bun" ]; then
-        exec_start="/home/ubuntu/.bun/bin/openclaw gateway --verbose"
+        exec_start="/home/ubuntu/.bun/bin/bun run openclaw gateway --verbose"
     else
         exec_start="openclaw gateway --verbose"
     fi
@@ -619,7 +619,7 @@ create_node_systemd_service() {
     if [ -d "/home/ubuntu/.nvm" ]; then
         exec_start="/home/ubuntu/.nvm/nvm-exec openclaw node run --host ${gateway_host} --port ${gateway_port}"
     elif [ -d "/home/ubuntu/.bun" ]; then
-        exec_start="/home/ubuntu/.bun/bin/openclaw node run --host ${gateway_host} --port ${gateway_port}"
+        exec_start="/home/ubuntu/.bun/bin/bun run openclaw node run --host ${gateway_host} --port ${gateway_port}"
     else
         exec_start="openclaw node run --host ${gateway_host} --port ${gateway_port}"
     fi
