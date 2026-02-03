@@ -7,7 +7,20 @@ source "$CHARM_DIR/hooks/common.sh"
 ROLE="$(get_unit_role)"
 log_info "Peer relation changed - role: $ROLE"
 
-if [ "$ROLE" = "node" ]; then
+if [ "$ROLE" = "gateway" ]; then
+    # Gateway: Auto-approve pending node devices from peer relation
+    log_info "Gateway: Running auto-approval for pending node devices"
+    
+    if [ -x /usr/local/bin/openclaw-auto-approve ]; then
+        if sudo -u ubuntu /usr/local/bin/openclaw-auto-approve 2>&1 | while IFS= read -r line; do log_info "Auto-approve: $line"; done; then
+            log_info "Auto-approval completed successfully"
+        else
+            log_warn "Auto-approval script exited with error"
+        fi
+    else
+        log_warn "Auto-approval script not found or not executable at /usr/local/bin/openclaw-auto-approve"
+    fi
+elif [ "$ROLE" = "node" ]; then
     gateway_unit=""
     gateway_host=""
     gateway_port=""
@@ -27,10 +40,16 @@ if [ "$ROLE" = "node" ]; then
                 start_openclaw_node
             fi
             
-            if [ -n "$gateway_unit" ]; then
-                status-set active "Node - connected to ${gateway_unit}"
+            sleep 10
+            
+            if is_node_paired; then
+                if [ -n "$gateway_unit" ]; then
+                    status-set active "Node - connected to ${gateway_unit}"
+                else
+                    status-set active "Node connected to ${gateway_host}:${gateway_port}"
+                fi
             else
-                status-set active "Node connected to ${gateway_host}:${gateway_port}"
+                status-set waiting "Waiting for device pairing approval"
             fi
         else
             status-set blocked "Failed to configure Node"

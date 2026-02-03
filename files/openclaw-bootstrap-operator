@@ -1,0 +1,96 @@
+#!/bin/bash
+# Bootstrap operator device for OpenClaw Gateway
+# This script solves the chicken-and-egg problem where the gateway requires
+# at least one paired operator device before it can process any other pairing requests.
+
+set -e
+
+MAX_WAIT=30
+WAIT_INTERVAL=2
+OPENCLAW_DIR="/home/ubuntu/.openclaw"
+PENDING_FILE="$OPENCLAW_DIR/devices/pending.json"
+PAIRED_FILE="$OPENCLAW_DIR/devices/paired.json"
+
+log() {
+    echo "[bootstrap-operator] $*"
+}
+
+wait_for_pending_operator() {
+    local waited=0
+    log "Waiting for pending operator device (max ${MAX_WAIT}s)..."
+    
+    while [ $waited -lt $MAX_WAIT ]; do
+        if [ -f "$PENDING_FILE" ]; then
+            # Check if there's an operator device in pending
+            operator_req_id=$(jq -r 'to_entries[] | select(.value.role == "operator") | .key' "$PENDING_FILE" 2>/dev/null | head -1)
+            
+            if [ -n "$operator_req_id" ] && [ "$operator_req_id" != "null" ]; then
+                log "Found pending operator device: $operator_req_id"
+                echo "$operator_req_id"
+                return 0
+            fi
+        fi
+        
+        sleep $WAIT_INTERVAL
+        waited=$((waited + WAIT_INTERVAL))
+    done
+    
+    log "No pending operator device found after ${MAX_WAIT}s"
+    return 1
+}
+
+bootstrap_operator() {
+    local operator_req_id="$1"
+    
+    log "Bootstrapping operator device: $operator_req_id"
+    
+    # Backup files
+    cp "$PENDING_FILE" "$PENDING_FILE.bak"
+    cp "$PAIRED_FILE" "$PAIRED_FILE.bak"
+    
+    # Extract operator device data
+    operator_data=$(jq ".[\"$operator_req_id\"]" "$PENDING_FILE")
+    device_id=$(echo "$operator_data" | jq -r '.deviceId')
+    
+    log "Device ID: $device_id"
+    
+    # Add to paired.json
+    echo "{\"$device_id\": $operator_data}" > "$PAIRED_FILE"
+    
+    # Remove from pending.json
+    jq "del([\"$operator_req_id\"])" "$PENDING_FILE" > "$PENDING_FILE.tmp"
+    mv "$PENDING_FILE.tmp" "$PENDING_FILE"
+    
+    log "✓ Operator device paired successfully"
+    return 0
+}
+
+main() {
+    # Check if operator device is already paired
+    if [ -f "$PAIRED_FILE" ]; then
+        paired_count=$(jq 'length' "$PAIRED_FILE" 2>/dev/null || echo "0")
+        if [ "$paired_count" -gt 0 ]; then
+            log "Operator device already paired (count: $paired_count)"
+            exit 0
+        fi
+    fi
+    
+    # Wait for pending operator device
+    operator_req_id=$(wait_for_pending_operator)
+    if [ -z "$operator_req_id" ]; then
+        log "WARNING: No operator device found - gateway may not be fully functional"
+        log "Try running 'openclaw devices list' from the gateway to trigger operator pairing"
+        exit 1
+    fi
+    
+    # Bootstrap the operator
+    if bootstrap_operator "$operator_req_id"; then
+        log "✓ Bootstrap complete - gateway is ready for device approvals"
+        exit 0
+    else
+        log "ERROR: Failed to bootstrap operator device"
+        exit 1
+    fi
+}
+
+main "$@"

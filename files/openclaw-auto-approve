@@ -1,0 +1,64 @@
+#!/bin/bash
+# OpenClaw Auto-Approve Helper Script
+# Automatically approves pending node devices on the gateway
+
+set -e
+
+# Setup environment
+export HOME="/home/ubuntu"
+export NVM_DIR="$HOME/.nvm"
+export NODE_VERSION="24"
+
+# Source nvm
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh"
+    nvm use "$NODE_VERSION" >/dev/null 2>&1
+else
+    echo "ERROR: nvm not found at $NVM_DIR/nvm.sh" >&2
+    exit 1
+fi
+
+# OpenClaw config path
+CONFIG="$HOME/.openclaw/openclaw.json"
+
+if [ ! -f "$CONFIG" ]; then
+    echo "ERROR: OpenClaw config not found at $CONFIG" >&2
+    exit 1
+fi
+
+# Extract gateway configuration
+GATEWAY_TOKEN=$(jq -r '.gateway.auth.token // empty' "$CONFIG" 2>/dev/null)
+if [ -z "$GATEWAY_TOKEN" ]; then
+    echo "ERROR: Gateway token not found in config" >&2
+    exit 1
+fi
+
+GATEWAY_HOST=$(hostname -I | awk '{print $1}')
+GATEWAY_PORT=$(jq -r '.gateway.port // 18789' "$CONFIG" 2>/dev/null)
+GATEWAY_URL="ws://${GATEWAY_HOST}:${GATEWAY_PORT}"
+
+# Get pending node devices
+PENDING=$(openclaw devices list --url "$GATEWAY_URL" --token "$GATEWAY_TOKEN" --json 2>/dev/null | \
+          jq -r '.pending[]? | select(.role=="node") | .requestId' 2>/dev/null || echo "")
+
+if [ -z "$PENDING" ]; then
+    echo "No pending node devices to approve"
+    exit 0
+fi
+
+# Approve each pending device
+APPROVED=0
+while IFS= read -r request_id; do
+    if [ -n "$request_id" ]; then
+        echo "Approving node device: $request_id"
+        if openclaw devices approve "$request_id" --url "$GATEWAY_URL" --token "$GATEWAY_TOKEN" 2>/dev/null; then
+            echo "Successfully approved: $request_id"
+            APPROVED=$((APPROVED + 1))
+        else
+            echo "Failed to approve: $request_id" >&2
+        fi
+    fi
+done <<< "$PENDING"
+
+echo "Approved $APPROVED node device(s)"
+exit 0

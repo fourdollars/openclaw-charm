@@ -109,5 +109,25 @@ log_info "OpenClaw installed successfully: version $INSTALLED_VERSION"
 # Create systemd service
 create_systemd_service
 
+# Deploy helper scripts
+log_info "Deploying helper scripts"
+if [ -f "$CHARM_DIR/files/openclaw-auto-approve" ]; then
+    cp "$CHARM_DIR/files/openclaw-auto-approve" /usr/local/bin/openclaw-auto-approve
+    chmod 755 /usr/local/bin/openclaw-auto-approve
+    chown ubuntu:ubuntu /usr/local/bin/openclaw-auto-approve
+    log_info "Auto-approve helper script deployed"
+else
+    log_warn "openclaw-auto-approve script not found in charm files"
+fi
+
+if [ -f "$CHARM_DIR/files/openclaw-bootstrap-operator" ]; then
+    cp "$CHARM_DIR/files/openclaw-bootstrap-operator" /usr/local/bin/openclaw-bootstrap-operator
+    chmod 755 /usr/local/bin/openclaw-bootstrap-operator
+    chown ubuntu:ubuntu /usr/local/bin/openclaw-bootstrap-operator
+    log_info "Bootstrap-operator helper script deployed"
+else
+    log_warn "openclaw-bootstrap-operator script not found in charm files"
+fi
+
 status-set active "Installation complete"
 log_info "OpenClaw installation completed successfully"

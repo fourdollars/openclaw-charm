@@ -11,6 +11,7 @@ parts:
     prime:
       - hooks
       - actions
+      - files
       - metadata.yaml
       - config.yaml
       - actions.yaml

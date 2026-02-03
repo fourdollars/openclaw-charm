@@ -866,3 +866,33 @@ close_ports() {
     log_info "Closing port $gateway_port"
     close-port "$gateway_port/tcp"
 }
+
+# Run command as ubuntu user with nvm environment
+run_as_user() {
+    local cmd="$1"
+    sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use \${NODE_VERSION:-24} >/dev/null 2>&1 && $cmd"
+}
+
+# Check if this node is paired and connected to the gateway
+# Returns: 0 if paired and connected, 1 if not
+is_node_paired() {
+    local pid recent_errors
+    
+    pid=$(pgrep -u ubuntu -f "openclaw-node" | head -1)
+    if [ -z "$pid" ]; then
+        log_debug "Node process is not running"
+        return 1
+    fi
+    
+    log_debug "Node process PID $pid is running"
+    
+    recent_errors=$(sudo -u ubuntu bash -l -c "journalctl --user -u openclaw-node.service --since '5 seconds ago' --no-pager 2>/dev/null | grep -c 'pairing required\|connect failed\|ECONNREFUSED'" || echo "0")
+    
+    if [ "$recent_errors" -gt 0 ]; then
+        log_debug "Node has recent connection errors ($recent_errors errors in last 5s)"
+        return 1
+    fi
+    
+    log_debug "Node process stable and connected (no errors in last 5s)"
+    return 0
+}

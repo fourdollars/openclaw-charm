@@ -19,6 +19,11 @@ if [ "$ROLE" = "gateway" ]; then
         
         url="http://${ip}:${port}"
         
+        # Auto-approve pending node devices
+        if [ -x /usr/local/bin/openclaw-auto-approve ]; then
+            sudo -u ubuntu /usr/local/bin/openclaw-auto-approve >/dev/null 2>&1 || true
+        fi
+        
         if validate_config; then
             status-set active "Gateway: $url"
         else
@@ -28,14 +33,24 @@ if [ "$ROLE" = "gateway" ]; then
         status-set blocked "Gateway service not running"
     fi
 else
-    if run_systemctl_user is-active --quiet openclaw-node.service 2>/dev/null; then
+    # Check if service is active or in auto-restart state (which is normal when awaiting pairing)
+    service_state=$(run_systemctl_user show openclaw-node.service -p ActiveState -p SubState --value 2>/dev/null | tr '\n' ',' || echo "failed,")
+    
+    if [[ "$service_state" == *"active"* ]] || [[ "$service_state" == *"auto-restart"* ]]; then
         read -r gateway_unit gateway_host gateway_port _ <<< "$(get_gateway_info)"
-        if [ -n "$gateway_unit" ]; then
-            status-set active "Node - connected to ${gateway_unit}"
-        elif [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
-            status-set active "Node connected to ${gateway_host}:${gateway_port}"
+        
+        # Check if node is paired with gateway
+        if is_node_paired; then
+            if [ -n "$gateway_unit" ]; then
+                status-set active "Node - connected to ${gateway_unit}"
+            elif [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
+                status-set active "Node connected to ${gateway_host}:${gateway_port}"
+            else
+                status-set blocked "Waiting for Gateway connection info"
+            fi
         else
-            status-set blocked "Waiting for Gateway connection info"
+            # Node is running but not yet paired
+            status-set waiting "Waiting for device pairing approval"
         fi
     else
         status-set blocked "Node service not running"
