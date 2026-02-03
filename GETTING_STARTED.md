@@ -2,15 +2,19 @@
 
 Your complete production-ready Juju machine charm for OpenClaw is ready!
 
+---
+
 ## ✅ What's Been Created
 
 ### Core Charm Files
+
 - ✅ `metadata.yaml` - Charm definition (Noble 24.04)
 - ✅ `config.yaml` - 18 configuration options
 - ✅ `charmcraft.yaml` - Build configuration
 - ✅ `hooks/` - Complete lifecycle management (install, start, stop, config-changed, upgrade-charm)
 
 ### GitHub Pages
+
 - ✅ `docs/index.html` - Beautiful, modern documentation website
   - Animated gradient backgrounds
   - Responsive design
@@ -19,11 +23,13 @@ Your complete production-ready Juju machine charm for OpenClaw is ready!
   - Configuration reference
 
 ### CI/CD Workflows
+
 - ✅ `.github/workflows/test.yaml` - Comprehensive testing (lint, install, channels, upgrade)
 - ✅ `.github/workflows/publish.yaml` - Automated CharmHub publishing
 - ✅ `.github/workflows/pages.yaml` - Documentation deployment
 
 ### Documentation
+
 - ✅ `README.md` - Complete user documentation (10KB+)
 - ✅ `CONTRIBUTING.md` - Contribution guidelines
 - ✅ `LICENSE` - MIT License
@@ -31,6 +37,7 @@ Your complete production-ready Juju machine charm for OpenClaw is ready!
 - ✅ Issue & PR templates
 
 ### Quality Assurance
+
 - ✅ All hooks pass shellcheck with zero errors
 - ✅ Validation script (`validate.sh`) for pre-deployment checks
 - ✅ 2,532 lines of production-ready code
@@ -40,13 +47,17 @@ Your complete production-ready Juju machine charm for OpenClaw is ready!
 ## 🚀 Quick Start
 
 ### 1. Initialize Git Repository
+
 ```bash
 git init
 git add .
 git commit -m "Initial commit: OpenClaw Juju Charm v1.0.0"
 ```
 
+---
+
 ### 2. Create GitHub Repository
+
 ```bash
 # Create repo on GitHub, then:
 git remote add origin https://github.com/fourdollars/openclaw-charm.git
@@ -54,13 +65,18 @@ git branch -M main
 git push -u origin main
 ```
 
+---
+
 ### 3. Enable GitHub Pages
+
 1. Go to repository **Settings** → **Pages**
 2. Source: **Deploy from a branch**
 3. Branch: **main** → Directory: **/docs**
 4. Save
 
 Your documentation will be live at: `https://fourdollars.github.io/openclaw-charm/`
+
+---
 
 ### 4. Set Up CharmHub Publishing
 
@@ -78,13 +94,17 @@ cat ~/charmcraft-token.txt  # Copy this value
 ```
 
 **Add GitHub Secret:**
+
 1. Go to repository **Settings** → **Secrets and variables** → **Actions**
 2. Click **New repository secret**
 3. Name: `CHARMCRAFT_TOKEN`
 4. Value: (paste token from above)
 5. Click **Add secret**
 
+---
+
 ### 5. Test Locally (Optional but Recommended)
+
 ```bash
 # Install dependencies
 sudo snap install charmcraft --classic
@@ -114,7 +134,10 @@ juju destroy-model test-openclaw -y
 juju destroy-controller test-controller -y
 ```
 
+---
+
 ### 6. Publish to CharmHub
+
 ```bash
 # Create version tag
 git tag -a v1.0.0 -m "Release v1.0.0: Initial production release"
@@ -128,7 +151,10 @@ git push origin v1.0.0
 # 5. Create GitHub Release
 ```
 
+---
+
 ### 7. Verify Publication
+
 ```bash
 # Install from CharmHub
 juju deploy openclaw --channel=candidate \
@@ -145,11 +171,13 @@ juju status openclaw
 Share this with your users:
 
 ### Installation
+
 ```bash
 juju deploy openclaw --channel edge --config anthropic-api-key="your-key-here"
 ```
 
 ### Configuration
+
 ```bash
 # Enable Telegram
 juju config openclaw telegram-bot-token="123456:ABC-DEF"
@@ -159,6 +187,7 @@ juju config openclaw discord-bot-token="YOUR.TOKEN.HERE"
 ```
 
 ### Accessing Gateway
+
 ```bash
 # Get unit IP
 juju status openclaw

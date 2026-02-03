@@ -2,15 +2,23 @@
 
 Thank you for your interest in contributing! This document provides guidelines and instructions for contributing to the OpenClaw Juju Charm project.
 
+---
+
 ## Code of Conduct
+
+Be a good community member:
 
 - Be respectful and inclusive
 - Focus on constructive feedback
 - Help others learn and grow
 
+---
+
 ## How to Contribute
 
 ### Reporting Bugs
+
+Help us improve by reporting bugs:
 
 1. Check if the bug is already reported in [Issues](https://github.com/fourdollars/openclaw-charm/issues)
 2. Create a new issue with:
@@ -22,11 +30,15 @@ Thank you for your interest in contributing! This document provides guidelines a
 
 ### Suggesting Enhancements
 
+Have an idea? Let us know:
+
 1. Open an issue with the "enhancement" label
 2. Describe the feature and use case
 3. Explain why it would be useful
 
 ### Pull Requests
+
+Ready to contribute code?
 
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
@@ -35,6 +47,8 @@ Thank you for your interest in contributing! This document provides guidelines a
 5. Commit with clear messages
 6. Push to your fork
 7. Open a pull request
+
+---
 
 ### Development Setup
 
@@ -55,7 +69,11 @@ charmcraft pack
 juju deploy ./openclaw_*.charm --config test-config.yaml
 ```
 
+---
+
 ### Testing Guidelines
+
+Ensure quality through thorough testing:
 
 - Test all hooks (install, start, stop, config-changed, upgrade-charm)
 - Verify configuration changes work correctly
@@ -63,19 +81,25 @@ juju deploy ./openclaw_*.charm --config test-config.yaml
 - Check logs for errors
 - Ensure service starts correctly
 
+---
+
 ### Code Style
 
-**Shell Scripts (Bash)**
+**Shell Scripts (Bash):**
+
 - Use shellcheck for linting
 - Follow Google Shell Style Guide
 - Add comments for complex logic
 - Use meaningful variable names
 - Handle errors properly (set -e)
 
-**YAML Files**
+**YAML Files:**
+
 - 2-space indentation
 - Clear descriptions for all options
 - Follow Juju charm metadata standards
+
+---
 
 ### Commit Messages
 
@@ -89,7 +113,11 @@ test: add upgrade test workflow
 chore: update dependencies
 ```
 
+---
+
 ### Pull Request Process
+
+Follow these steps for a smooth review:
 
 1. Update README.md if needed
 2. Update CHANGELOG.md
@@ -97,6 +125,8 @@ chore: update dependencies
 4. Request review from maintainers
 5. Address review feedback
 6. Squash commits if requested
+
+---
 
 ## Project Structure
 
@@ -116,6 +146,8 @@ openclaw-charm/
 ├── docs/             # GitHub Pages documentation
 └── README.md         # Main documentation
 ```
+
+---
 
 ## Testing
 
@@ -144,16 +176,23 @@ juju ssh openclaw/0 'systemctl status openclaw'
 juju destroy-model test-openclaw -y
 ```
 
+---
+
 ### CI Testing
 
 All PRs automatically run:
+
 - Shell script linting
 - Metadata validation
 - Installation tests (npm/pnpm methods)
 - Configuration tests
 - Upgrade tests
 
+---
+
 ## Release Process
+
+Follow these steps for creating releases:
 
 1. Update version in metadata
 2. Update CHANGELOG.md
@@ -166,6 +205,8 @@ All PRs automatically run:
    - Publish to CharmHub (candidate channel)
    - Create GitHub release
 
+---
+
 ### Version Tags
 
 - `vX.Y.Z` → candidate channel
@@ -173,13 +214,19 @@ All PRs automatically run:
 - `vX.Y.Z-alpha.N` → edge channel
 - Stable channel requires manual approval
 
+---
+
 ## Getting Help
+
+Need assistance? Check these resources:
 
 - **Documentation**: https://fourdollars.github.io/openclaw-charm/
 - **Issues**: https://github.com/fourdollars/openclaw-charm/issues
 - **Discussions**: https://github.com/fourdollars/openclaw-charm/discussions
 - **Juju Docs**: https://juju.is/docs
 - **OpenClaw Discord**: https://discord.gg/clawd
+
+---
 
 ## License
 
