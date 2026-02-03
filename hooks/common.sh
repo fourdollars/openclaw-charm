@@ -376,11 +376,7 @@ OPENCLAW_GATEWAY_PORT=${gateway_port}
 OPENCLAW_GATEWAY_BIND=${gateway_bind}
 EOF
     
-    # Add Bun to PATH if installed
-    if [ -d "/home/ubuntu/.bun" ]; then
-        # shellcheck disable=SC2016
-        echo 'PATH=/home/ubuntu/.bun/bin:$PATH' >> "$env_file"
-    fi
+
     
     # Set API key based on provider (legacy environment variable support)
     if [ -n "$api_key" ]; then
@@ -551,6 +547,16 @@ create_systemd_service() {
         exec_start="openclaw gateway --verbose"
     fi
     
+    local systemd_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    if [ -d "/home/ubuntu/.bun" ]; then
+        systemd_path="/home/ubuntu/.bun/bin:${systemd_path}"
+    fi
+    if [ -d "/home/ubuntu/.nvm" ]; then
+        local nvm_node_version
+        nvm_node_version="$(ls -1 /home/ubuntu/.nvm/versions/node | sort -V | tail -1)"
+        systemd_path="/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin:${systemd_path}"
+    fi
+    
     sudo -u ubuntu bash -l -c "cat > $service_file" <<EOF
 [Unit]
 Description=OpenClaw Gateway - Personal AI Assistant
@@ -561,6 +567,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h
+Environment=PATH=${systemd_path}
 EnvironmentFile=%h/.openclaw/environment
 ExecStart=$exec_start
 Restart=always
@@ -616,6 +623,16 @@ create_node_systemd_service() {
         exec_start="openclaw node run --host ${gateway_host} --port ${gateway_port}"
     fi
     
+    local systemd_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    if [ -d "/home/ubuntu/.bun" ]; then
+        systemd_path="/home/ubuntu/.bun/bin:${systemd_path}"
+    fi
+    if [ -d "/home/ubuntu/.nvm" ]; then
+        local nvm_node_version
+        nvm_node_version="$(ls -1 /home/ubuntu/.nvm/versions/node | sort -V | tail -1)"
+        systemd_path="/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin:${systemd_path}"
+    fi
+    
     sudo -u ubuntu bash -l -c "cat > $service_file" <<EOF
 [Unit]
 Description=OpenClaw Node - Remote Capabilities Host
@@ -626,6 +643,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=%h
+Environment=PATH=${systemd_path}
 Environment="OPENCLAW_GATEWAY_TOKEN=${gateway_token}"
 Environment="NODE_VERSION=$(config-get node-version)"
 ExecStart=$exec_start
