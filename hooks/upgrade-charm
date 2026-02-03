@@ -31,9 +31,26 @@ if ! sudo -u ubuntu bash -l -c "command -v openclaw" >/dev/null 2>&1; then
                 [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
                 npm install -g openclaw@${OPENCLAW_VERSION}
             "
+            
+            # Make openclaw accessible system-wide for npm/pnpm
+            if [ -d "/home/ubuntu/.nvm" ]; then
+                local nvm_node_version
+                # shellcheck disable=SC2012
+                nvm_node_version="$(ls -1 /home/ubuntu/.nvm/versions/node | sort -V | tail -1)"
+                if [ -f "/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw" ]; then
+                    ln -sf "/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw" /usr/local/bin/openclaw
+                    log_info "Created symlink for openclaw at /usr/local/bin/openclaw"
+                fi
+            fi
             ;;
         bun)
             sudo -u ubuntu bash -l -c "bun install -g openclaw@${OPENCLAW_VERSION}"
+            
+            # Make openclaw accessible system-wide for bun
+            if [ -f "/home/ubuntu/.bun/bin/openclaw" ]; then
+                ln -sf "/home/ubuntu/.bun/bin/openclaw" /usr/local/bin/openclaw
+                log_info "Created symlink for openclaw at /usr/local/bin/openclaw"
+            fi
             ;;
         source)
             if [ ! -d "/home/ubuntu/openclaw" ]; then
@@ -44,6 +61,17 @@ if ! sudo -u ubuntu bash -l -c "command -v openclaw" >/dev/null 2>&1; then
                 [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
                 cd /home/ubuntu/openclaw && git fetch && git checkout ${OPENCLAW_VERSION} && pnpm install && pnpm build
             "
+            
+            # Make openclaw accessible system-wide for source install
+            if [ -d "/home/ubuntu/.nvm" ]; then
+                local nvm_node_version
+                # shellcheck disable=SC2012
+                nvm_node_version="$(ls -1 /home/ubuntu/.nvm/versions/node | sort -V | tail -1)"
+                if [ -f "/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw" ]; then
+                    ln -sf "/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw" /usr/local/bin/openclaw
+                    log_info "Created symlink for openclaw at /usr/local/bin/openclaw"
+                fi
+            fi
             ;;
     esac
 fi
