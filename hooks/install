@@ -92,6 +92,8 @@ esac
 if ! sudo -u ubuntu bash -l -c "
     export NVM_DIR=\"/home/ubuntu/.nvm\"
     [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+    export BUN_INSTALL=\"/home/ubuntu/.bun\"
+    [ -d \"\$BUN_INSTALL/bin\" ] && export PATH=\"\$BUN_INSTALL/bin:\$PATH\"
     command -v openclaw
 " >/dev/null 2>&1; then
     log_error "OpenClaw installation failed - command not found for ubuntu user"
@@ -102,6 +104,8 @@ fi
 INSTALLED_VERSION=$(sudo -u ubuntu bash -l -c "
     export NVM_DIR=\"/home/ubuntu/.nvm\"
     [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+    export BUN_INSTALL=\"/home/ubuntu/.bun\"
+    [ -d \"\$BUN_INSTALL/bin\" ] && export PATH=\"\$BUN_INSTALL/bin:\$PATH\"
     timeout 5 openclaw --version 2>/dev/null
 " || echo "unknown")
 log_info "OpenClaw installed successfully: version $INSTALLED_VERSION"

@@ -867,10 +867,16 @@ close_ports() {
     close-port "$gateway_port/tcp"
 }
 
-# Run command as ubuntu user with nvm environment
+# Run command as ubuntu user with appropriate runtime environment (nvm or bun)
 run_as_user() {
     local cmd="$1"
-    sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use \${NODE_VERSION:-24} >/dev/null 2>&1 && $cmd"
+    sudo -u ubuntu bash -l -c "
+        export NVM_DIR=\"/home/ubuntu/.nvm\"
+        [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\" && nvm use \${NODE_VERSION:-24} >/dev/null 2>&1
+        export BUN_INSTALL=\"/home/ubuntu/.bun\"
+        [ -d \"\$BUN_INSTALL/bin\" ] && export PATH=\"\$BUN_INSTALL/bin:\$PATH\"
+        $cmd
+    "
 }
 
 # Check if this node is paired and connected to the gateway
