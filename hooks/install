@@ -68,7 +68,6 @@ case "$INSTALL_METHOD" in
         
         # Make openclaw accessible system-wide for npm/pnpm
         if [ -d "/home/ubuntu/.nvm" ]; then
-            local nvm_node_version
             # shellcheck disable=SC2012
             nvm_node_version="$(ls -1 /home/ubuntu/.nvm/versions/node | sort -V | tail -1)"
             if [ -f "/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw" ]; then
@@ -101,7 +100,6 @@ case "$INSTALL_METHOD" in
         
         # Make openclaw accessible system-wide for source install
         if [ -d "/home/ubuntu/.nvm" ]; then
-            local nvm_node_version
             # shellcheck disable=SC2012
             nvm_node_version="$(ls -1 /home/ubuntu/.nvm/versions/node | sort -V | tail -1)"
             if [ -f "/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw" ]; then
