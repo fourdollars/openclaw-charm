@@ -378,6 +378,7 @@ EOF
     
     # Add Bun to PATH if installed
     if [ -d "/home/ubuntu/.bun" ]; then
+        # shellcheck disable=SC2016
         echo 'PATH=/home/ubuntu/.bun/bin:$PATH' >> "$env_file"
     fi
     
