@@ -553,6 +553,7 @@ create_systemd_service() {
     fi
     if [ -d "/home/ubuntu/.nvm" ]; then
         local nvm_node_version
+        # shellcheck disable=SC2012
         nvm_node_version="$(ls -1 /home/ubuntu/.nvm/versions/node | sort -V | tail -1)"
         systemd_path="/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin:${systemd_path}"
     fi
@@ -629,6 +630,7 @@ create_node_systemd_service() {
     fi
     if [ -d "/home/ubuntu/.nvm" ]; then
         local nvm_node_version
+        # shellcheck disable=SC2012
         nvm_node_version="$(ls -1 /home/ubuntu/.nvm/versions/node | sort -V | tail -1)"
         systemd_path="/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin:${systemd_path}"
     fi
