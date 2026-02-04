@@ -85,6 +85,7 @@
         /* ========================================
            LAYOUT CONTAINER
            ======================================== */
+        .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 2rem;
@@ -107,10 +108,12 @@
         .logo {
             font-size: 1.75rem;
             font-weight: 900;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            background: linear-gradient(135deg, #ef4444, #f97316, #fb923c, #ef4444, #f97316);
+            background-size: 300% 300%;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            animation: gradientShift 4s ease infinite;
         }
         
         .nav-links {
@@ -134,7 +137,7 @@
            HERO SECTION
            ======================================== */
         .hero {
-            padding: 6rem 0 8rem;
+            padding: 6rem 0 2rem;
             text-align: center;
         }
         
@@ -248,7 +251,11 @@
            FEATURES SECTION
            ======================================== */
         .features {
-            padding: 6rem 0;
+            padding: 1.5rem 0 3rem;
+        }
+        
+        .multi-unit-scaling {
+            padding-top: 3rem;
         }
         
         .section-title {
@@ -312,7 +319,7 @@
            INSTALLATION SECTION
            ======================================== */
         .installation {
-            padding: 6rem 0;
+            padding: 3rem 0;
             background: rgba(0, 0, 0, 0.2);
         }
         
@@ -364,13 +371,50 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.875rem;
             overflow-x: auto;
+            position: relative;
+            white-space: pre;
+            line-height: 1.6;
+        }
+        
+        .step-content .code-wrapper-inline {
+            position: relative;
+            margin-top: 0.5rem;
+            display: block;
+        }
+        
+        .step-content .copy-btn-inline {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            padding: 0.4rem 0.8rem;
+            background: rgba(239, 68, 68, 0.8);
+            border: 1px solid rgba(239, 68, 68, 1);
+            border-radius: 0.5rem;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+            z-index: 10;
+        }
+        
+        .step-content .copy-btn-inline:hover {
+            background: rgba(249, 115, 22, 0.9);
+            border-color: var(--secondary);
+            transform: translateY(-1px);
+        }
+        
+        .step-content .copy-btn-inline.copied {
+            background: var(--success);
+            border-color: var(--success);
         }
         
         /* ========================================
            CONFIGURATION SECTION
            ======================================== */
         .configuration {
-            padding: 6rem 0;
+            padding: 3rem 0;
         }
         
         .config-grid {
@@ -469,6 +513,48 @@
             .config-grid {
                 grid-template-columns: 1fr;
             }
+            
+            .diagram-container {
+                padding: 2rem 1rem;
+            }
+            
+            .architecture-svg {
+                max-width: 100%;
+            }
+            
+            .copy-btn {
+                font-size: 0.75rem;
+                padding: 0.4rem 0.8rem;
+            }
+        }
+        
+        /* Enhanced hover effects */
+        .feature-card:hover .feature-icon {
+            transform: scale(1.1) rotate(5deg);
+            transition: transform 0.3s ease;
+        }
+        
+        .config-card {
+            transition: all 0.3s ease;
+        }
+        
+        .config-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(239, 68, 68, 0.3);
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.1);
+        }
+        
+        .install-step {
+            transition: all 0.3s ease;
+        }
+        
+        .install-step:hover {
+            transform: translateX(5px);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        
+        .install-step:hover .step-number {
+            transform: scale(1.1);
         }
         
         /* ========================================
@@ -491,6 +577,227 @@
             font-size: 0.875rem;
             color: var(--gray-light);
             backdrop-filter: blur(10px);
+        }
+        
+        /* ========================================
+           SVG DIAGRAMS
+           ======================================== */
+        .diagram-container {
+            margin: 2rem 0 1.5rem;
+            padding: 3rem 2rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .diagram-title {
+            text-align: center;
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            color: white;
+            width: 100%;
+            display: block;
+        }
+        
+        .architecture-svg {
+            width: 100%;
+            max-width: 1000px;
+            height: auto;
+            margin: 0 auto;
+            display: block;
+        }
+        
+        /* SVG Animation Classes */
+        .svg-fade-in {
+            opacity: 0;
+            animation: fadeIn 1s ease-out forwards;
+        }
+        
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+        
+        .svg-draw-path {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: drawPath 2s ease-out forwards;
+        }
+        
+        @keyframes drawPath {
+            to { stroke-dashoffset: 0; }
+        }
+        
+        .svg-pulse {
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .svg-float {
+            animation: floatSvg 3s ease-in-out infinite;
+        }
+        
+        @keyframes floatSvg {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+        
+        /* Code Block with Copy Button */
+        .code-wrapper {
+            position: relative;
+            margin-top: 1rem;
+        }
+        
+        .copy-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 0.5rem;
+            color: white;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: var(--primary);
+        }
+        
+        .copy-btn.copied {
+            background: var(--success);
+            border-color: var(--success);
+        }
+        
+        /* Scroll Animation */
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        
+        .scroll-reveal.revealed {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        /* ========================================
+           MODAL / LIGHTBOX FOR DIAGRAM ZOOM
+           ======================================== */
+        .diagram-modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            overflow: auto;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .diagram-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .diagram-modal-content {
+            position: relative;
+            width: 100%;
+            max-width: none;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            animation: zoomIn 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .diagram-modal-content svg {
+            width: auto;
+            height: auto;
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 12px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        
+        .modal-close {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            color: #fff;
+            font-size: 32px;
+            font-weight: bold;
+            cursor: pointer;
+            background: rgba(239, 68, 68, 0.8);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            z-index: 10000;
+            line-height: 1;
+            padding: 0;
+            text-align: center;
+        }
+        
+        .modal-close:hover {
+            background: var(--primary);
+            transform: rotate(90deg);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .diagram-container {
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .diagram-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.3);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes zoomIn {
+            from { 
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            to { 
+                transform: scale(1);
+                opacity: 1;
+            }
         }
     </style>
 </head>
@@ -538,24 +845,99 @@
                     </a>
                 </div>
                 
-                <div class="code-block">
-                    <pre><code># Deploy OpenClaw via Juju Charm
-juju deploy openclaw --channel edge
-
-# Configure with your AI provider
-juju config openclaw \
-  ai-provider="anthropic" \
-  ai-api-key="your-key-here" \
-  ai-model="claude-opus-4-5"
-
-# Enable messaging platforms
-juju config openclaw telegram-bot-token="your-token"
-
-# Optional: Configure additional AI models (up to 11 total)
-juju config openclaw \
-  ai0-provider="openai" \
-  ai0-model="gpt-4" \
-  ai0-api-key="your-openai-key"</code></pre>
+                <!-- Architecture Diagram -->
+                <div class="diagram-container scroll-reveal">
+                    <h3 class="diagram-title">🏗️ Gateway-Node Architecture</h3>
+                    <svg class="architecture-svg" viewBox="0 0 1000 600" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Background Grid -->
+                        <defs>
+                            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+                            </pattern>
+                            <linearGradient id="nodeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#f97316;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="glow">
+                                <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        
+                        <rect width="1000" height="600" fill="url(#grid)"/>
+                        
+                        <!-- Gateway Unit (Leader) -->
+                        <g class="svg-float">
+                            <rect x="400" y="50" width="200" height="150" rx="15" fill="rgba(239, 68, 68, 0.2)" stroke="url(#nodeGradient)" stroke-width="3"/>
+                            <circle cx="500" cy="70" r="8" fill="#10b981" class="svg-pulse"/>
+                            <text x="500" y="100" text-anchor="middle" fill="white" font-size="20" font-weight="bold">Gateway (Leader)</text>
+                            <text x="500" y="125" text-anchor="middle" fill="#cbd5e1" font-size="14">openclaw/0*</text>
+                            <text x="500" y="145" text-anchor="middle" fill="#64748b" font-size="12">Port 18789</text>
+                            <text x="500" y="165" text-anchor="middle" fill="#64748b" font-size="12">AI • Messaging • Dashboard</text>
+                        </g>
+                        
+                        <!-- Node Units -->
+                        <g class="svg-fade-in" style="animation-delay: 0.3s">
+                            <rect x="150" y="350" width="180" height="120" rx="12" fill="rgba(249, 115, 22, 0.15)" stroke="#f97316" stroke-width="2" stroke-dasharray="5,5"/>
+                            <text x="240" y="390" text-anchor="middle" fill="white" font-size="16" font-weight="bold">Node</text>
+                            <text x="240" y="410" text-anchor="middle" fill="#cbd5e1" font-size="13">openclaw/1</text>
+                            <text x="240" y="430" text-anchor="middle" fill="#64748b" font-size="11">Compute Capacity</text>
+                            <text x="240" y="448" text-anchor="middle" fill="#64748b" font-size="11">System Access</text>
+                        </g>
+                        
+                        <g class="svg-fade-in" style="animation-delay: 0.5s">
+                            <rect x="410" y="350" width="180" height="120" rx="12" fill="rgba(249, 115, 22, 0.15)" stroke="#f97316" stroke-width="2" stroke-dasharray="5,5"/>
+                            <text x="500" y="390" text-anchor="middle" fill="white" font-size="16" font-weight="bold">Node</text>
+                            <text x="500" y="410" text-anchor="middle" fill="#cbd5e1" font-size="13">openclaw/2</text>
+                            <text x="500" y="430" text-anchor="middle" fill="#64748b" font-size="11">Compute Capacity</text>
+                            <text x="500" y="448" text-anchor="middle" fill="#64748b" font-size="11">System Access</text>
+                        </g>
+                        
+                        <g class="svg-fade-in" style="animation-delay: 0.7s">
+                            <rect x="670" y="350" width="180" height="120" rx="12" fill="rgba(249, 115, 22, 0.15)" stroke="#f97316" stroke-width="2" stroke-dasharray="5,5"/>
+                            <text x="760" y="390" text-anchor="middle" fill="white" font-size="16" font-weight="bold">Node</text>
+                            <text x="760" y="410" text-anchor="middle" fill="#cbd5e1" font-size="13">openclaw/N</text>
+                            <text x="760" y="430" text-anchor="middle" fill="#64748b" font-size="11">Compute Capacity</text>
+                            <text x="760" y="448" text-anchor="middle" fill="#64748b" font-size="11">System Access</text>
+                        </g>
+                        
+                        <!-- Connection Lines -->
+                        <path class="svg-draw-path" d="M 500 200 L 240 350" stroke="#ef4444" stroke-width="2" fill="none" style="animation-delay: 1s"/>
+                        <path class="svg-draw-path" d="M 500 200 L 500 350" stroke="#ef4444" stroke-width="2" fill="none" style="animation-delay: 1.2s"/>
+                        <path class="svg-draw-path" d="M 500 200 L 760 350" stroke="#ef4444" stroke-width="2" fill="none" style="animation-delay: 1.4s"/>
+                        
+                        <!-- Messaging Platforms (left side) -->
+                        <g class="svg-fade-in" style="animation-delay: 0.9s">
+                            <text x="50" y="120" fill="#cbd5e1" font-size="14" font-weight="bold">Messaging Platforms</text>
+                            <circle cx="60" cy="145" r="18" fill="rgba(249, 115, 22, 0.2)" stroke="#f97316" stroke-width="2"/>
+                            <text x="60" y="150" text-anchor="middle" fill="white" font-size="16">💬</text>
+                            
+                            <circle cx="110" cy="145" r="18" fill="rgba(249, 115, 22, 0.2)" stroke="#f97316" stroke-width="2"/>
+                            <text x="110" y="150" text-anchor="middle" fill="white" font-size="16">📱</text>
+                            
+                            <circle cx="160" cy="145" r="18" fill="rgba(249, 115, 22, 0.2)" stroke="#f97316" stroke-width="2"/>
+                            <text x="160" y="150" text-anchor="middle" fill="white" font-size="16">🎮</text>
+                        </g>
+                        
+                        <!-- Peer Relations Label -->
+                        <g class="svg-fade-in" style="animation-delay: 1.6s">
+                            <rect x="420" y="260" width="160" height="35" rx="8" fill="rgba(16, 185, 129, 0.2)" stroke="#10b981" stroke-width="1.5"/>
+                            <text x="500" y="282" text-anchor="middle" fill="#10b981" font-size="13" font-weight="bold">Peer Relations</text>
+                        </g>
+                        
+                        <!-- Distributed Compute -->
+                        <g class="svg-fade-in" style="animation-delay: 1.8s">
+                            <rect x="625" y="80" width="180" height="50" rx="8" fill="rgba(239, 68, 68, 0.1)" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/>
+                            <text x="715" y="100" text-anchor="middle" fill="#ef4444" font-size="12" font-weight="bold">Distributed Compute</text>
+                            <text x="715" y="118" text-anchor="middle" fill="#cbd5e1" font-size="11">Horizontal Scaling</text>
+                        </g>
+                        
+                        <!-- Connection from platforms to gateway -->
+                        <path class="svg-draw-path" d="M 180 140 L 400 115" stroke="#64748b" stroke-width="1.5" fill="none" stroke-dasharray="4,4" style="animation-delay: 2s"/>
+                    </svg>
                 </div>
             </div>
         </section>
@@ -563,59 +945,146 @@ juju config openclaw \
         <!-- Features Section -->
         <section id="features" class="features">
             <div class="container">
-                <h2 class="section-title">Charm Features</h2>
-                <p class="section-subtitle">Everything you need for a production OpenClaw deployment</p>
+                <h2 class="section-title scroll-reveal">Charm Features</h2>
+                <p class="section-subtitle scroll-reveal">Everything you need for a production OpenClaw deployment</p>
+                
+                <!-- Deployment Flow Diagram -->
+                <div class="diagram-container scroll-reveal">
+                    <h3 class="diagram-title">🚀 Deployment Workflow</h3>
+                    <svg class="architecture-svg" viewBox="0 0 1000 400" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="stepGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#f97316;stop-opacity:1" />
+                            </linearGradient>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="#ef4444" />
+                            </marker>
+                        </defs>
+                        
+                        <rect width="1000" height="400" fill="rgba(0, 0, 0, 0.1)" rx="10"/>
+                        
+                        <!-- Step 1: Deploy -->
+                        <g class="svg-fade-in">
+                            <circle cx="125" cy="200" r="60" fill="rgba(239, 68, 68, 0.2)" stroke="url(#stepGradient)" stroke-width="3"/>
+                            <text x="125" y="185" text-anchor="middle" fill="white" font-size="40">1</text>
+                            <text x="125" y="210" text-anchor="middle" fill="white" font-size="14" font-weight="bold">Deploy Charm</text>
+                            <text x="125" y="228" text-anchor="middle" fill="#cbd5e1" font-size="11">juju deploy</text>
+                            <rect x="60" y="280" width="130" height="60" rx="8" fill="rgba(255, 255, 255, 0.05)" stroke="rgba(255, 255, 255, 0.2)" stroke-width="1"/>
+                            <text x="125" y="300" text-anchor="middle" fill="#64748b" font-size="10">• Install Node.js</text>
+                            <text x="125" y="315" text-anchor="middle" fill="#64748b" font-size="10">• Setup OpenClaw</text>
+                            <text x="125" y="330" text-anchor="middle" fill="#64748b" font-size="10">• Create systemd</text>
+                        </g>
+                        
+                        <!-- Arrow 1 -->
+                        <path class="svg-draw-path" d="M 190 200 L 260 200" stroke="#ef4444" stroke-width="2.5" fill="none" marker-end="url(#arrowhead)" style="animation-delay: 0.5s"/>
+                        
+                        <!-- Step 2: Configure AI -->
+                        <g class="svg-fade-in" style="animation-delay: 0.3s">
+                            <circle cx="325" cy="200" r="60" fill="rgba(249, 115, 22, 0.2)" stroke="url(#stepGradient)" stroke-width="3"/>
+                            <text x="325" y="185" text-anchor="middle" fill="white" font-size="40">2</text>
+                            <text x="325" y="210" text-anchor="middle" fill="white" font-size="14" font-weight="bold">Configure AI</text>
+                            <text x="325" y="228" text-anchor="middle" fill="#cbd5e1" font-size="11">juju config</text>
+                            <rect x="260" y="280" width="130" height="60" rx="8" fill="rgba(255, 255, 255, 0.05)" stroke="rgba(255, 255, 255, 0.2)" stroke-width="1"/>
+                            <text x="325" y="300" text-anchor="middle" fill="#64748b" font-size="10">• Set AI provider</text>
+                            <text x="325" y="315" text-anchor="middle" fill="#64748b" font-size="10">• Configure model</text>
+                            <text x="325" y="330" text-anchor="middle" fill="#64748b" font-size="10">• Add API keys</text>
+                        </g>
+                        
+                        <!-- Arrow 2 -->
+                        <path class="svg-draw-path" d="M 390 200 L 460 200" stroke="#ef4444" stroke-width="2.5" fill="none" marker-end="url(#arrowhead)" style="animation-delay: 1s"/>
+                        
+                        <!-- Step 3: Add Channels -->
+                        <g class="svg-fade-in" style="animation-delay: 0.6s">
+                            <circle cx="525" cy="200" r="60" fill="rgba(251, 146, 60, 0.2)" stroke="url(#stepGradient)" stroke-width="3"/>
+                            <text x="525" y="185" text-anchor="middle" fill="white" font-size="40">3</text>
+                            <text x="525" y="210" text-anchor="middle" fill="white" font-size="14" font-weight="bold">Add Channels</text>
+                            <text x="525" y="228" text-anchor="middle" fill="#cbd5e1" font-size="11">Optional</text>
+                            <rect x="460" y="280" width="130" height="60" rx="8" fill="rgba(255, 255, 255, 0.05)" stroke="rgba(255, 255, 255, 0.2)" stroke-width="1"/>
+                            <text x="525" y="300" text-anchor="middle" fill="#64748b" font-size="10">• Telegram</text>
+                            <text x="525" y="315" text-anchor="middle" fill="#64748b" font-size="10">• Discord</text>
+                            <text x="525" y="330" text-anchor="middle" fill="#64748b" font-size="10">• Slack, LINE...</text>
+                        </g>
+                        
+                        <!-- Arrow 3 -->
+                        <path class="svg-draw-path" d="M 590 200 L 660 200" stroke="#ef4444" stroke-width="2.5" fill="none" marker-end="url(#arrowhead)" style="animation-delay: 1.5s"/>
+                        
+                        <!-- Step 4: Access Gateway -->
+                        <g class="svg-fade-in" style="animation-delay: 0.9s">
+                            <circle cx="725" cy="200" r="60" fill="rgba(16, 185, 129, 0.2)" stroke="#10b981" stroke-width="3"/>
+                            <text x="725" y="185" text-anchor="middle" fill="white" font-size="40">✓</text>
+                            <text x="725" y="210" text-anchor="middle" fill="white" font-size="14" font-weight="bold">Access Gateway</text>
+                            <text x="725" y="228" text-anchor="middle" fill="#cbd5e1" font-size="11">Port 18789</text>
+                            <rect x="660" y="280" width="130" height="60" rx="8" fill="rgba(255, 255, 255, 0.05)" stroke="rgba(255, 255, 255, 0.2)" stroke-width="1"/>
+                            <text x="725" y="300" text-anchor="middle" fill="#64748b" font-size="10">• Dashboard</text>
+                            <text x="725" y="315" text-anchor="middle" fill="#64748b" font-size="10">• Device pairing</text>
+                            <text x="725" y="330" text-anchor="middle" fill="#64748b" font-size="10">• Ready to use!</text>
+                        </g>
+                        
+                        <!-- Timeline -->
+                        <line x1="100" y1="380" x2="750" y2="380" stroke="rgba(255, 255, 255, 0.2)" stroke-width="2"/>
+                        <text x="425" y="395" text-anchor="middle" fill="#64748b" font-size="12">⏱️ Deployment typically takes 2-5 minutes</text>
+                        
+                        <!-- Scale indicator -->
+                        <g class="svg-fade-in" style="animation-delay: 2s">
+                            <rect x="820" y="170" width="150" height="60" rx="10" fill="rgba(239, 68, 68, 0.1)" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,4"/>
+                            <text x="895" y="193" text-anchor="middle" fill="#ef4444" font-size="12" font-weight="bold">Scale Later</text>
+                            <text x="895" y="210" text-anchor="middle" fill="#cbd5e1" font-size="10">juju add-unit</text>
+                            <text x="895" y="223" text-anchor="middle" fill="#64748b" font-size="9">for multi-node</text>
+                        </g>
+                    </svg>
+                </div>
                 
                 <div class="features-grid">
-                    <div class="feature-card">
+                    <div class="feature-card scroll-reveal">
                         <div class="feature-icon">🚀</div>
                         <h3>One-Command Deploy</h3>
                         <p>Deploy OpenClaw to any Ubuntu machine with a single Juju command. No complex setup required.</p>
                     </div>
                     
-                    <div class="feature-card">
+                    <div class="feature-card scroll-reveal">
                         <div class="feature-icon">💬</div>
                         <h3>Multi-Platform Messaging</h3>
                         <p>Supports 13+ platforms: WhatsApp, Telegram, Slack, Discord, Signal, iMessage, Teams, and more.</p>
                     </div>
                     
-                    <div class="feature-card">
+                    <div class="feature-card scroll-reveal">
                         <div class="feature-icon">🤖</div>
                         <h3>AI Provider Flexibility</h3>
                         <p>Configure up to 11 AI models simultaneously. Works with Anthropic Claude, OpenAI, Google Gemini, AWS Bedrock, or local models via Ollama.</p>
                     </div>
                     
-                    <div class="feature-card">
+                    <div class="feature-card scroll-reveal">
                         <div class="feature-icon">🔒</div>
                         <h3>Security-First Design</h3>
                         <p>Built-in sandboxing, pairing mode for DMs, and configurable security policies.</p>
                     </div>
                     
-                    <div class="feature-card">
+                    <div class="feature-card scroll-reveal">
                         <div class="feature-icon">🌐</div>
                         <h3>Browser Automation</h3>
                         <p>Integrated Playwright for web scraping, testing, and automated browsing tasks.</p>
                     </div>
                     
-                    <div class="feature-card">
+                    <div class="feature-card scroll-reveal">
                         <div class="feature-icon">⚙️</div>
                         <h3>Fully Configurable</h3>
                         <p>Extensive configuration options via Juju config. Update anytime without redeployment.</p>
                     </div>
                     
-                    <div class="feature-card">
+                    <div class="feature-card scroll-reveal">
                         <div class="feature-icon">📊</div>
                         <h3>Systemd Integration</h3>
                         <p>Managed as a systemd service with automatic restarts, logging, and resource limits.</p>
                     </div>
                     
-                    <div class="feature-card">
+                    <div class="feature-card scroll-reveal">
                         <div class="feature-icon">🔄</div>
                         <h3>Auto-Update Support</h3>
                         <p>Optional automatic updates to keep your OpenClaw instance current with latest features.</p>
                     </div>
                     
-                    <div class="feature-card">
+                    <div class="feature-card scroll-reveal">
                         <div class="feature-icon">🎯</div>
                         <h3>Production-Ready</h3>
                         <p>Tested CI/CD pipeline with automated installation tests before CharmHub publication.</p>
@@ -627,43 +1096,59 @@ juju config openclaw \
         <!-- Installation / Quick Start Section -->
         <section id="installation" class="installation">
             <div class="container">
-                <h2 class="section-title">Quick Start</h2>
-                <p class="section-subtitle">Get OpenClaw running in minutes</p>
+                <h2 class="section-title scroll-reveal">Quick Start</h2>
+                <p class="section-subtitle scroll-reveal">Get OpenClaw running in minutes</p>
                 
                 <div class="install-steps">
-                    <div class="install-step">
+                    <div class="install-step scroll-reveal">
                         <div class="step-number">1</div>
                         <div class="step-content">
                             <h3>Deploy the Charm</h3>
                             <p>Deploy OpenClaw to a Juju machine or LXD container</p>
-                            <code>juju deploy openclaw --channel edge</code>
+                            <div class="code-wrapper-inline">
+                                <button class="copy-btn-inline" onclick="copyCodeInline(this)">Copy</button>
+                                <code>juju deploy openclaw --channel edge</code>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="install-step">
+                    <div class="install-step scroll-reveal">
                         <div class="step-number">2</div>
                         <div class="step-content">
                             <h3>Configure AI Provider</h3>
                             <p>Set up your AI model credentials (Anthropic, OpenAI, Google, etc.)</p>
-                            <code>juju config openclaw \<br>  ai-provider="anthropic" \<br>  ai-api-key="sk-ant-xxx" \<br>  ai-model="claude-opus-4-5"</code>
+                            <div class="code-wrapper-inline">
+                                <button class="copy-btn-inline" onclick="copyCodeInline(this)">Copy</button>
+                                <code>juju config openclaw \
+  ai-provider="anthropic" \
+  ai-api-key="sk-ant-xxx" \
+  ai-model="claude-opus-4-5"</code>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="install-step">
+                    <div class="install-step scroll-reveal">
                         <div class="step-number">3</div>
                         <div class="step-content">
                             <h3>Enable Messaging Channels (Optional)</h3>
                             <p>Connect your preferred messaging platforms</p>
-                            <code>juju config openclaw telegram-bot-token="123456:ABC-DEF"</code>
+                            <div class="code-wrapper-inline">
+                                <button class="copy-btn-inline" onclick="copyCodeInline(this)">Copy</button>
+                                <code>juju config openclaw \
+  telegram-bot-token="123456:ABC-DEF"</code>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="install-step">
+                    <div class="install-step scroll-reveal">
                         <div class="step-number">4</div>
                         <div class="step-content">
                             <h3>Access the Gateway</h3>
                             <p>The OpenClaw Gateway will be running on port 18789</p>
-                            <code>juju status openclaw<br># Access: http://&lt;unit-ip&gt;:18789</code>
+                            <div class="code-wrapper-inline">
+                                <button class="copy-btn-inline" onclick="copyCodeInline(this)">Copy</button>
+                                <code>juju status openclaw</code>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -673,8 +1158,8 @@ juju config openclaw \
         <!-- Configuration Options Section -->
         <section id="configuration" class="configuration">
             <div class="container">
-                <h2 class="section-title">Configuration Options</h2>
-                <p class="section-subtitle">Customize OpenClaw to fit your needs</p>
+                <h2 class="section-title scroll-reveal">Configuration Options</h2>
+                <p class="section-subtitle scroll-reveal">Customize OpenClaw to fit your needs</p>
                 
                 <div class="config-grid">
                     <div class="config-card">
@@ -799,100 +1284,186 @@ juju config openclaw \
         </section>
         
         <!-- Multi-Unit Scaling Section -->
-        <section class="features">
+        <section class="features multi-unit-scaling">
             <div class="container">
                 <h2 class="section-title">Multi-Unit Scaling</h2>
                 <p style="text-align: center; color: var(--gray); margin-bottom: 3rem; max-width: 800px; margin-left: auto; margin-right: auto;">
-                    Deploy multiple units for high availability and horizontal scaling with automatic Gateway-Node architecture
+                    Deploy multiple units for horizontal scaling with automatic Gateway-Node architecture
                 </p>
                 
-                <div class="config-grid">
-                    <div class="config-card">
-                        <h3>🚀 Deploy Multiple Units</h3>
-                        <pre><code># Deploy with 3 units
-juju deploy openclaw --channel edge -n 3 \
-  --config ai-provider="anthropic" \
-  --config ai-api-key="sk-ant-xxx" \
-  --config ai-model="claude-opus-4-5"
-
-# Wait for deployment
-juju status --watch 1s
-
-# Approve pending Nodes
-juju run openclaw/0 approve-nodes</code></pre>
+                <!-- Scaling Visualization Diagram -->
+                <div class="diagram-container scroll-reveal">
+                    <h3 class="diagram-title">📈 Horizontal Scaling Architecture</h3>
+                    <svg class="architecture-svg" viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="gatewayGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#ef4444;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#f97316;stop-opacity:1" />
+                            </linearGradient>
+                            <linearGradient id="nodeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#6366f1;stop-opacity:1" />
+                            </linearGradient>
+                            <filter id="glow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                            <marker id="arrowScaling" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+                                <polygon points="0 0, 12 6, 0 12" fill="#ef4444" />
+                            </marker>
+                        </defs>
+                        
+                        <rect width="1200" height="500" fill="rgba(0, 0, 0, 0.1)" rx="12"/>
+                        
+                        <!-- LEFT: Single Unit (Before) -->
+                        <g class="svg-fade-in">
+                            <text x="200" y="30" text-anchor="middle" fill="#cbd5e1" font-size="14" font-weight="bold">Step 1: Initial Deploy</text>
+                            
+                            <!-- Deploy command box -->
+                            <rect x="120" y="45" width="160" height="50" rx="8" fill="rgba(16, 185, 129, 0.15)" stroke="#10b981" stroke-width="2" stroke-dasharray="4,4"/>
+                            <text x="200" y="65" text-anchor="middle" fill="#10b981" font-size="9" font-family="monospace">juju deploy openclaw</text>
+                            <text x="200" y="80" text-anchor="middle" fill="#10b981" font-size="9" font-family="monospace">--channel edge</text>
+                            
+                            <!-- Single Gateway -->
+                            <rect x="125" y="110" width="150" height="120" rx="12" fill="rgba(239, 68, 68, 0.2)" stroke="url(#gatewayGradient)" stroke-width="3" filter="url(#glow)"/>
+                            <text x="200" y="140" text-anchor="middle" fill="white" font-size="40">🌐</text>
+                            <text x="200" y="175" text-anchor="middle" fill="white" font-size="16" font-weight="bold">Gateway</text>
+                            <text x="200" y="195" text-anchor="middle" fill="#cbd5e1" font-size="12">openclaw/0*</text>
+                            <text x="200" y="215" text-anchor="middle" fill="#10b981" font-size="11">:18789</text>
+                            
+                            <!-- Messaging Platforms -->
+                            <g opacity="0.7">
+                                <circle cx="150" cy="260" r="12" fill="rgba(249, 115, 22, 0.3)" stroke="#f97316" stroke-width="1.5"/>
+                                <text x="150" y="265" text-anchor="middle" fill="white" font-size="10">💬</text>
+                                
+                                <circle cx="200" cy="260" r="12" fill="rgba(249, 115, 22, 0.3)" stroke="#f97316" stroke-width="1.5"/>
+                                <text x="200" y="265" text-anchor="middle" fill="white" font-size="10">📱</text>
+                                
+                                <circle cx="250" cy="260" r="12" fill="rgba(249, 115, 22, 0.3)" stroke="#f97316" stroke-width="1.5"/>
+                                <text x="250" y="265" text-anchor="middle" fill="white" font-size="10">🎮</text>
+                            </g>
+                        </g>
+                        
+                        <!-- CENTER: Scaling Action -->
+                        <g class="svg-fade-in" style="animation-delay: 0.5s">
+                            <!-- Scale command box -->
+                            <rect x="425" y="80" width="130" height="90" rx="10" fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4"/>
+                            <text x="490" y="105" text-anchor="middle" fill="#ef4444" font-size="13" font-weight="bold">Step 2: Scale Up</text>
+                            
+                            <text x="490" y="130" text-anchor="middle" fill="#cbd5e1" font-size="10" font-family="monospace">juju add-unit</text>
+                            <text x="490" y="145" text-anchor="middle" fill="#cbd5e1" font-size="10" font-family="monospace">openclaw -n 2</text>
+                            
+                            <text x="490" y="165" text-anchor="middle" fill="#64748b" font-size="9">+2 Node units</text>
+                            
+                            <!-- Arrow from left Gateway to right architecture -->
+                            <path d="M 280 180 L 715 180" stroke="#ef4444" stroke-width="4" fill="none" marker-end="url(#arrowScaling)" class="svg-draw-path" style="animation-delay: 0.7s"/>
+                        </g>
+                        
+                        <!-- RIGHT: Multi-Unit (After) -->
+                        <g class="svg-fade-in" style="animation-delay: 1s">
+                            <text x="900" y="40" text-anchor="middle" fill="#cbd5e1" font-size="14" font-weight="bold">Multi-Unit Architecture</text>
+                            
+                            <!-- Gateway (Leader) -->
+                            <rect x="720" y="60" width="150" height="100" rx="12" fill="rgba(239, 68, 68, 0.2)" stroke="url(#gatewayGradient)" stroke-width="3" filter="url(#glow)" class="svg-float"/>
+                            <text x="795" y="90" text-anchor="middle" fill="white" font-size="36">🌐</text>
+                            <text x="795" y="120" text-anchor="middle" fill="white" font-size="14" font-weight="bold">Gateway ⭐</text>
+                            <text x="795" y="138" text-anchor="middle" fill="#cbd5e1" font-size="11">openclaw/0* (leader)</text>
+                            <text x="795" y="152" text-anchor="middle" fill="#10b981" font-size="10">:18789</text>
+                            
+                            <!-- Node 1 -->
+                            <rect x="920" y="60" width="140" height="100" rx="12" fill="rgba(139, 92, 246, 0.2)" stroke="url(#nodeGradient)" stroke-width="2.5"/>
+                            <text x="990" y="90" text-anchor="middle" fill="white" font-size="32">⚙️</text>
+                            <text x="990" y="120" text-anchor="middle" fill="white" font-size="13" font-weight="bold">Node</text>
+                            <text x="990" y="136" text-anchor="middle" fill="#cbd5e1" font-size="10">openclaw/1</text>
+                            <text x="990" y="150" text-anchor="middle" fill="#8b5cf6" font-size="9">Connected</text>
+                            
+                            <!-- Node 2 -->
+                            <rect x="920" y="180" width="140" height="100" rx="12" fill="rgba(139, 92, 246, 0.2)" stroke="url(#nodeGradient)" stroke-width="2.5"/>
+                            <text x="990" y="210" text-anchor="middle" fill="white" font-size="32">⚙️</text>
+                            <text x="990" y="240" text-anchor="middle" fill="white" font-size="13" font-weight="bold">Node</text>
+                            <text x="990" y="256" text-anchor="middle" fill="#cbd5e1" font-size="10">openclaw/2</text>
+                            <text x="990" y="270" text-anchor="middle" fill="#8b5cf6" font-size="9">Connected</text>
+                            
+                            <!-- Peer Relations -->
+                            <path d="M 870 110 L 920 110" stroke="#10b981" stroke-width="2.5" stroke-dasharray="6,4" fill="none" class="svg-draw-path" style="animation-delay: 1.3s"/>
+                            <path d="M 870 110 L 920 230" stroke="#10b981" stroke-width="2.5" stroke-dasharray="6,4" fill="none" class="svg-draw-path" style="animation-delay: 1.5s"/>
+                            
+                            <!-- Peer relation label -->
+                            <circle cx="895" cy="110" r="18" fill="rgba(16, 185, 129, 0.3)" stroke="#10b981" stroke-width="2" class="svg-pulse"/>
+                            <text x="895" y="115" text-anchor="middle" fill="white" font-size="14">🔗</text>
+                            
+                            <!-- Messaging Platforms (shared) -->
+                            <g opacity="0.7">
+                                <circle cx="745" cy="190" r="12" fill="rgba(249, 115, 22, 0.3)" stroke="#f97316" stroke-width="1.5"/>
+                                <text x="745" y="195" text-anchor="middle" fill="white" font-size="10">💬</text>
+                                
+                                <circle cx="795" cy="190" r="12" fill="rgba(249, 115, 22, 0.3)" stroke="#f97316" stroke-width="1.5"/>
+                                <text x="795" y="195" text-anchor="middle" fill="white" font-size="10">📱</text>
+                                
+                                <circle cx="845" cy="190" r="12" fill="rgba(249, 115, 22, 0.3)" stroke="#f97316" stroke-width="1.5"/>
+                                <text x="845" y="195" text-anchor="middle" fill="white" font-size="10">🎮</text>
+                            </g>
+                            
+                            <!-- Approve Nodes Action -->
+                            <rect x="720" y="220" width="150" height="55" rx="8" fill="rgba(16, 185, 129, 0.15)" stroke="#10b981" stroke-width="1.5" stroke-dasharray="3,3"/>
+                            <text x="795" y="240" text-anchor="middle" fill="#10b981" font-size="11" font-weight="bold">📝 approve-nodes</text>
+                            <text x="795" y="255" text-anchor="middle" fill="#64748b" font-size="9">juju run openclaw/leader</text>
+                            <text x="795" y="268" text-anchor="middle" fill="#64748b" font-size="9">approve-nodes</text>
+                        </g>
+                        
+                        <!-- Leader Election Badge -->
+                        <g class="svg-fade-in" style="animation-delay: 1.8s">
+                            <rect x="450" y="340" width="300" height="100" rx="10" fill="rgba(239, 68, 68, 0.1)" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="5,5"/>
+                            <text x="600" y="365" text-anchor="middle" fill="#ef4444" font-size="13" font-weight="bold">⚡ Distributed Compute</text>
+                            <text x="600" y="385" text-anchor="middle" fill="#cbd5e1" font-size="11">Scale horizontally for capacity</text>
+                            <text x="600" y="405" text-anchor="middle" fill="#64748b" font-size="10">Gateway handles messaging & AI</text>
+                            <text x="600" y="422" text-anchor="middle" fill="#64748b" font-size="10">Nodes provide system access</text>
+                        </g>
+                    </svg>
+                </div>
+                
+                <!-- Benefits Grid -->
+                <div class="config-grid" style="margin-top: 3rem;">
+                    <div class="config-card scroll-reveal">
+                        <div style="text-align: center; margin-bottom: 1rem; font-size: 36px;">🖥️</div>
+                        <h3 style="text-align: center; margin-bottom: 0.5rem;">Distributed Access</h3>
+                        <p style="color: var(--gray); text-align: center; font-size: 0.9rem;">Nodes provide system access across multiple machines for distributed command execution.</p>
                     </div>
                     
-                    <div class="config-card">
-                        <h3>📊 Status Example</h3>
-                        <pre><code>Unit         Workload  Message
-openclaw/0*  active    Gateway: http://10.47.232.168:18789
-openclaw/1   active    Node - connected to openclaw/0
-openclaw/2   active    Node - connected to openclaw/0</code></pre>
+                    <div class="config-card scroll-reveal">
+                        <div style="text-align: center; margin-bottom: 1rem; font-size: 36px;">⚖️</div>
+                        <h3 style="text-align: center; margin-bottom: 0.5rem;">Load Distribution</h3>
+                        <p style="color: var(--gray); text-align: center; font-size: 0.9rem;">Nodes handle system.run commands across multiple machines. Parallel task execution.</p>
                     </div>
                     
-                    <div class="config-card">
-                        <h3>⚙️ How It Works</h3>
-                        <dl class="config-list">
-                            <div class="config-option">
-                                <dt>Leader Unit</dt>
-                                <dd>Runs OpenClaw Gateway (messaging, AI, dashboard)</dd>
-                            </div>
-                            <div class="config-option">
-                                <dt>Non-Leader Units</dt>
-                                <dd>Run OpenClaw Nodes (compute capacity, system access)</dd>
-                            </div>
-                            <div class="config-option">
-                                <dt>Automatic Coordination</dt>
-                                <dd>Units discover each other via peer relations</dd>
-                            </div>
-                            <div class="config-option">
-                                <dt>Device Pairing</dt>
-                                <dd>Nodes require approval via approve-nodes action</dd>
-                            </div>
-                        </dl>
+                    <div class="config-card scroll-reveal">
+                        <div style="text-align: center; margin-bottom: 1rem; font-size: 36px;">📈</div>
+                        <h3 style="text-align: center; margin-bottom: 0.5rem;">Dynamic Scaling</h3>
+                        <p style="color: var(--gray); text-align: center; font-size: 0.9rem;">Add or remove units on-the-fly with <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">juju add-unit</code>. Zero downtime.</p>
                     </div>
                     
-                    <div class="config-card">
-                        <h3>✨ Benefits</h3>
-                        <dl class="config-list">
-                            <div class="config-option">
-                                <dt>High Availability</dt>
-                                <dd>Automatic failover through Juju leader election</dd>
-                            </div>
-                            <div class="config-option">
-                                <dt>Load Distribution</dt>
-                                <dd>Nodes handle system.run across multiple machines</dd>
-                            </div>
-                            <div class="config-option">
-                                <dt>Scalability</dt>
-                                <dd>Add or remove units dynamically</dd>
-                            </div>
-                            <div class="config-option">
-                                <dt>Automatic Recovery</dt>
-                                <dd>New leader elected if Gateway fails</dd>
-                            </div>
-                        </dl>
-                    </div>
-                    
-                    <div class="config-card">
-                        <h3>📈 Scaling Commands</h3>
-                        <pre><code># Scale up
-juju add-unit openclaw -n 2
-juju run openclaw/0 approve-nodes
-
-# Scale down
-juju remove-unit openclaw/2
-
-# Check Node connections
-juju ssh openclaw/0 'openclaw devices list'
-
-# View Node logs
-juju ssh openclaw/1 'journalctl -u openclaw-node.service -n 50'</code></pre>
+                    <div class="config-card scroll-reveal">
+                        <div style="text-align: center; margin-bottom: 1rem; font-size: 36px;">🔗</div>
+                        <h3 style="text-align: center; margin-bottom: 0.5rem;">Auto Coordination</h3>
+                        <p style="color: var(--gray); text-align: center; font-size: 0.9rem;">Nodes automatically discover and connect to Gateway through peer relations.</p>
                     </div>
                 </div>
             </div>
         </section>
     </main>
+    
+    <!-- Modal for Diagram Zoom -->
+    <div id="diagramModal" class="diagram-modal">
+        <div class="diagram-modal-content">
+            <span class="modal-close" onclick="closeDiagramModal()">✕</span>
+            <svg id="modalSvg" class="architecture-svg" viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg">
+                <!-- SVG content will be cloned here by JavaScript -->
+            </svg>
+        </div>
+    </div>
     
     <!-- Footer -->
     <footer>
@@ -910,5 +1481,129 @@ juju ssh openclaw/1 'journalctl -u openclaw-node.service -n 50'</code></pre>
             </p>
         </div>
     </footer>
+    
+    <script>
+        function copyCode(button) {
+            const codeBlock = button.nextElementSibling.querySelector('code');
+            const text = codeBlock.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            });
+        }
+        
+        function copyCodeInline(button) {
+            const codeBlock = button.nextElementSibling;
+            let text = codeBlock.textContent;
+            
+            text = text.replace(/\\\s*\n\s*/g, ' ').trim();
+            
+            navigator.clipboard.writeText(text).then(() => {
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            });
+        }
+        
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -100px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('revealed');
+                }
+            });
+        }, observerOptions);
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.scroll-reveal').forEach(el => {
+                observer.observe(el);
+            });
+            
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const target = document.querySelector(this.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
+            });
+            
+            document.querySelectorAll('.diagram-container').forEach(container => {
+                container.addEventListener('click', function() {
+                    openDiagramModal(this);
+                });
+            });
+        });
+        
+        function openDiagramModal(container) {
+            const originalSvg = container.querySelector('.architecture-svg');
+            const modal = document.getElementById('diagramModal');
+            const modalSvg = document.getElementById('modalSvg');
+            
+            if (originalSvg && modal && modalSvg) {
+                const viewBox = originalSvg.getAttribute('viewBox');
+                const [x, y, width, height] = viewBox.split(' ').map(Number);
+                
+                modalSvg.innerHTML = originalSvg.innerHTML;
+                modalSvg.setAttribute('viewBox', viewBox);
+                modalSvg.removeAttribute('width');
+                modalSvg.removeAttribute('height');
+                
+                const aspectRatio = width / height;
+                const maxWidth = window.innerWidth * 0.9;
+                const maxHeight = window.innerHeight * 0.9;
+                
+                let finalWidth, finalHeight;
+                if (maxWidth / aspectRatio <= maxHeight) {
+                    finalWidth = maxWidth;
+                    finalHeight = maxWidth / aspectRatio;
+                } else {
+                    finalHeight = maxHeight;
+                    finalWidth = maxHeight * aspectRatio;
+                }
+                
+                modalSvg.style.width = finalWidth + 'px';
+                modalSvg.style.height = finalHeight + 'px';
+                
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+        
+        function closeDiagramModal() {
+            const modal = document.getElementById('diagramModal');
+            if (modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        }
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeDiagramModal();
+            }
+        });
+        
+        document.getElementById('diagramModal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'diagramModal') {
+                closeDiagramModal();
+            }
+        });
+    </script>
 </body>
 </html>

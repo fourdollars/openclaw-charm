@@ -9,6 +9,7 @@
   - [Why do I get "disconnected (1008): control ui requires HTTPS or localhost"?](#why-do-i-get-disconnected-1008-control-ui-requires-https-or-localhost)
   - [Why do I get "disconnected (1008): unauthorized: gateway token missing"?](#why-do-i-get-disconnected-1008-unauthorized-gateway-token-missing)
   - [Can I disable the token requirement?](#can-i-disable-the-token-requirement)
+  - [Why do I get "disconnected (1008): pairing required"?](#why-do-i-get-disconnected-1008-pairing-required)
 - [Configuration](#configuration)
   - [How do I change the gateway port?](#how-do-i-change-the-gateway-port)
   - [How do I bind the gateway to all network interfaces?](#how-do-i-bind-the-gateway-to-all-network-interfaces)
@@ -30,7 +31,7 @@
 - [Advanced](#advanced)
   - [How do I use a different JavaScript runtime?](#how-do-i-use-a-different-javascript-runtime)
   - [How do I access the Canvas host?](#how-do-i-access-the-canvas-host)
-  - [Can I deploy multiple units for high availability or scaling?](#can-i-deploy-multiple-units-for-high-availability-or-scaling)
+  - [Can I deploy multiple units for scaling?](#can-i-deploy-multiple-units-for-scaling)
   - [Can I run multiple OpenClaw instances?](#can-i-run-multiple-openclaw-instances)
   - [How do I backup OpenClaw data?](#how-do-i-backup-openclaw-data)
   - [How do I access OpenClaw logs?](#how-do-i-access-openclaw-logs)
@@ -192,6 +193,85 @@ The Control UI requires authentication. You need to:
 ### Can I disable the token requirement?
 
 No. Token authentication is required for security in OpenClaw 2026.1.29+. The token is automatically generated during installation and stored in `~/.openclaw/openclaw.json`.
+
+---
+
+### Why do I get "disconnected (1008): pairing required"?
+
+This error appears when your browser tries to connect to the OpenClaw Gateway but hasn't been approved as a device yet. OpenClaw requires **device pairing** for security - the first operator device (your browser) must be manually approved.
+
+**Symptoms:**
+- WebSocket connection closes immediately after entering gateway token
+- Error message: "disconnected (1008): pairing required"
+- Gateway logs show: `code=1008 reason=pairing required`
+
+**Solution:**
+
+1. **SSH into the gateway unit:**
+   ```bash
+   juju ssh openclaw/0
+   ```
+
+2. **List pending devices:**
+   ```bash
+   sudo -u ubuntu bash -l <<EOF
+   export NVM_DIR="/home/ubuntu/.nvm"
+   [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
+   nvm use 24 >/dev/null 2>&1
+   openclaw devices list
+   EOF
+   ```
+
+   You'll see output like:
+   ```
+   Pending (1)
+   ┌──────────────────────────────────────┬──────────────────────┬──────────┬──────────────┐
+   │ Request                              │ Device               │ Role     │ IP           │
+   ├──────────────────────────────────────┼──────────────────────┼──────────┼──────────────┤
+   │ 7b426990-8fbf-491b-92de-655553e99218 │ 82ba7068cbd9d04b...  │ operator │ 10.235.133.1 │
+   └──────────────────────────────────────┴──────────────────────┴──────────┴──────────────┘
+   ```
+
+3. **Approve the device using the Request ID:**
+   ```bash
+   sudo -u ubuntu bash -l <<EOF
+   export NVM_DIR="/home/ubuntu/.nvm"
+   [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
+   nvm use 24 >/dev/null 2>&1
+   openclaw devices approve 7b426990-8fbf-491b-92de-655553e99218
+   EOF
+   ```
+
+4. **Refresh your browser** - the dashboard should now connect successfully!
+
+**Alternative (simplified command):**
+
+For convenience with SSH tunnels through Juju, you can also use:
+
+```bash
+# If you're accessing via: ssh -L 18789:10.235.133.100:18789 juju-host
+# And your Juju host is configured in ~/.ssh/config as 'juju-host'
+
+ssh juju-host -- juju ssh openclaw/1 'sudo -u ubuntu bash -l <<EOF
+export NVM_DIR="/home/ubuntu/.nvm"
+[ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
+nvm use 24 >/dev/null 2>&1
+openclaw devices list
+EOF'
+```
+
+**Why does this happen?**
+
+OpenClaw Gateway uses device pairing as a security mechanism:
+- The first operator must be manually approved (this is you!)
+- After approval, you can approve additional devices through the web UI
+- This prevents unauthorized access even if someone obtains the gateway token
+
+**Note:** If you're using `gateway-bind=lan` mode, make sure the SSH tunnel forwards to the correct IP. For example:
+```bash
+# Forward to the LAN IP, not localhost
+ssh -L 18789:10.235.133.100:18789 juju-host
+```
 
 ---
 
@@ -738,7 +818,7 @@ http://localhost:18793/__openclaw__/canvas/
 
 ---
 
-## Can I deploy multiple units for high availability or scaling?
+## Can I deploy multiple units for scaling?
 
 Yes! The OpenClaw charm supports horizontal scaling with automatic Gateway-Node architecture:
 
@@ -750,11 +830,11 @@ juju deploy openclaw --channel edge -n 3
 juju status --watch 1s
 
 # Approve pending Nodes (new in charm v19+)
-juju run openclaw/0 approve-nodes
+juju run openclaw/leader approve-nodes
 
 # Scale up
 juju add-unit openclaw -n 2
-juju run openclaw/0 approve-nodes
+juju run openclaw/leader approve-nodes
 
 # Scale down
 juju remove-unit openclaw/4
@@ -778,10 +858,10 @@ openclaw/2   active    Node - connected to openclaw/0
 
 **Benefits:**
 
-- High availability through Juju leader election
 - Horizontal scaling for increased capacity
 - Distributed compute for `system.run` commands
-- Automatic failover if Gateway unit fails
+- Multiple Nodes provide system access across machines
+- Dynamic scaling with `juju add-unit`
 
 **Monitoring:**
 
@@ -811,7 +891,7 @@ If Nodes show as "pending" and not connected:
 juju ssh openclaw/0 'openclaw devices list'
 
 # Approve all pending Nodes
-juju run openclaw/0 approve-nodes
+juju run openclaw/leader approve-nodes
 
 # Or manually approve a specific device
 juju ssh openclaw/0 'openclaw devices approve <request-id>'

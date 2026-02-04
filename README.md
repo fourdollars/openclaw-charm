@@ -86,7 +86,7 @@ When deploying multiple units, Node devices require approval before they can con
 
 ```bash
 # Approve all pending Node devices
-juju run openclaw/0 approve-nodes
+juju run openclaw/leader approve-nodes
 
 # Check which devices are pending
 juju ssh openclaw/0 'openclaw devices list'
@@ -356,11 +356,11 @@ juju deploy openclaw --channel edge -n 3 \
 juju status --watch 1s
 
 # Approve pending Nodes
-juju run openclaw/0 approve-nodes
+juju run openclaw/leader approve-nodes
 
 # Scale up to 5 units
 juju add-unit openclaw -n 2
-juju run openclaw/0 approve-nodes
+juju run openclaw/leader approve-nodes
 
 # Scale down to 2 units
 juju remove-unit openclaw/2
@@ -385,10 +385,10 @@ openclaw/2   active    Node - connected to openclaw/0
 
 **Benefits:**
 
-- **High availability**: If Gateway unit fails, Juju elects a new leader
+- **Horizontal scaling**: Add more nodes for increased capacity
 - **Load distribution**: Nodes can handle system.run commands across multiple machines
-- **Scalability**: Add more nodes for increased capacity
-- **Automatic coordination**: Nodes discover and connect to Gateway automatically
+- **Distributed access**: Nodes provide system access across different machines
+- **Automatic coordination**: Units discover and connect through peer relations
 
 ### Multiple Instances
 
