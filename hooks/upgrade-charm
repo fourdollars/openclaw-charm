@@ -135,8 +135,8 @@ fi
 generate_config
 
 if [ "$ROLE" = "gateway" ]; then
-    if sudo -u ubuntu bash -l -c "systemctl --user is-active --quiet openclaw-gateway.service" 2>/dev/null; then
-        log_info "Restarting OpenClaw Gateway after upgrade"
+    if is_gateway_running; then
+        log_info "Gateway service already running - restarting after upgrade"
         if restart_openclaw; then
             port="$(config-get gateway-port)"
             ip=$(unit-get private-address)
@@ -154,25 +154,12 @@ if [ "$ROLE" = "gateway" ]; then
             exit 1
         fi
     else
-        log_info "Starting Gateway service after upgrade"
-        if start_openclaw; then
-            port="$(config-get gateway-port)"
-            ip=$(unit-get private-address)
-            url="http://${ip}:${port}"
-            
-            if validate_config; then
-                status-set active "Gateway: $url (upgraded)"
-            else
-                status-set blocked "Gateway started but configuration incomplete"
-            fi
-        else
-            status-set blocked "Failed to start Gateway after upgrade"
-            exit 1
-        fi
+        log_info "Gateway service not running - deferring start to start hook"
+        status-set maintenance "Upgrade complete, waiting for start hook"
     fi
 else
-    if sudo -u ubuntu bash -l -c "systemctl --user is-active --quiet openclaw-node.service" 2>/dev/null; then
-        log_info "Restarting OpenClaw Node after upgrade"
+    if is_node_running; then
+        log_info "Node service already running - restarting after upgrade"
         if restart_openclaw_node; then
             status-set active "Node - connected to gateway (upgraded)"
         else
@@ -180,13 +167,8 @@ else
             exit 1
         fi
     else
-        log_info "Starting Node service after upgrade"
-        if start_openclaw_node; then
-            status-set active "Node - connected to gateway (upgraded)"
-        else
-            status-set blocked "Failed to start Node after upgrade"
-            exit 1
-        fi
+        log_info "Node service not running - deferring start to start hook"
+        status-set maintenance "Upgrade complete, waiting for start hook"
     fi
 fi
 

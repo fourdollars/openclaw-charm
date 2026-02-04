@@ -362,7 +362,7 @@ EOF
     sed -i '$ s/,$//' "$config_file"
 
     cat >> "$config_file" <<EOF
-  },
+  }
 EOF
 
     # Collect all providers with custom baseUrl (primary + ai0-ai9)
@@ -405,6 +405,7 @@ EOF
     # Add models.providers section if any baseUrls were configured
     if [ $provider_count -gt 0 ]; then
         cat >> "$config_file" <<EOF
+,
   "models": {
     "providers": {
 $providers_with_baseurl
@@ -414,7 +415,7 @@ $providers_with_baseurl
 EOF
     else
         # No models.providers needed, just close root JSON object
-        printf "}\n" >> "$config_file"
+        printf "\n}\n" >> "$config_file"
     fi
 
     # Set environment variables for API keys
@@ -786,8 +787,18 @@ restart_openclaw_node() {
     fi
 }
 
+# Check if OpenClaw Gateway service is currently running
+is_gateway_running() {
+    run_systemctl_user is-active --quiet openclaw-gateway.service 2>/dev/null
+}
+
+# Check if OpenClaw Node service is currently running
+is_node_running() {
+    run_systemctl_user is-active --quiet openclaw-node.service 2>/dev/null
+}
+
 get_status() {
-    if run_systemctl_user is-active --quiet openclaw-gateway.service; then
+    if is_gateway_running; then
         local port
         port="$(config-get gateway-port)"
         echo "OpenClaw Gateway running on port $port"

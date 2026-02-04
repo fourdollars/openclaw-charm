@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$CHARM_DIR/hooks/common.sh"
@@ -23,7 +22,41 @@ if [ "$ROLE" = "gateway" ]; then
     generate_config
     open_ports
     
-    if start_openclaw; then
+    if is_gateway_running; then
+        log_info "Gateway service already running (likely from upgrade-charm hook)"
+        port="$(config-get gateway-port)"
+        bind="$(config-get gateway-bind)"
+        
+        if [ "$bind" = "loopback" ]; then
+            ip="127.0.0.1"
+        else
+            ip=$(unit-get private-address)
+        fi
+        
+        url="http://${ip}:${port}"
+        
+        gateway_token=$(jq -r '.gateway.auth.token // empty' /home/ubuntu/.openclaw/openclaw.json 2>/dev/null)
+        
+        gateway_host=$(unit-get private-address)
+        
+        relation_id=$(relation-ids openclaw-cluster 2>/dev/null | head -1)
+        if [ -n "$relation_id" ]; then
+            relation-set -r "$relation_id" gateway-host="$gateway_host" || true
+            relation-set -r "$relation_id" gateway-port="$port" || true
+            if [ -n "$gateway_token" ]; then
+                relation-set -r "$relation_id" gateway-token="$gateway_token" || true
+            fi
+        fi
+        
+        if validate_config; then
+            status-set active "Gateway: $url"
+            log_info "Gateway already running and healthy"
+        else
+            status-set blocked "Gateway running but configuration incomplete"
+            log_warn "Gateway requires valid configuration"
+        fi
+        exit 0
+    elif start_openclaw; then
         port="$(config-get gateway-port)"
         bind="$(config-get gateway-bind)"
         
@@ -86,6 +119,7 @@ if [ "$ROLE" = "gateway" ]; then
             status-set blocked "Gateway running but configuration incomplete"
             log_warn "OpenClaw Gateway started but requires valid configuration"
         fi
+        exit 0
     else
         status-set blocked "Failed to start Gateway - check logs"
         exit 1
@@ -102,7 +136,23 @@ else
         exit 1
     fi
     
-    if start_openclaw_node; then
+    if is_node_running; then
+        log_info "Node service already running (likely from upgrade-charm hook)"
+        gateway_unit=""
+        gateway_host=""
+        gateway_port=""
+        gateway_token=""
+        read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
+        
+        if [ -n "$gateway_unit" ] && [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
+            status-set active "Node - connected to ${gateway_unit}"
+            log_info "Node already running and connected to Gateway ${gateway_unit}"
+        else
+            status-set active "Node service started"
+            log_info "Node already running"
+        fi
+        exit 0
+    elif start_openclaw_node; then
         gateway_unit=""
         gateway_host=""
         gateway_port=""
@@ -116,6 +166,7 @@ else
             status-set active "Node service started"
             log_info "OpenClaw Node started"
         fi
+        exit 0
     else
         status-set blocked "Failed to start Node - check logs"
         exit 1
