@@ -527,6 +527,47 @@ juju config openclaw \
   ai-provider="google" \
   ai-api-key="YOUR-GEMINI-KEY" \
   ai-model="gemini-2.5-flash-lite"
+
+# Use local Ollama (OpenAI-compatible API)
+juju config openclaw \
+  ai-provider="openai" \
+  ai-api-key="ollama" \
+  ai-model="llama3.1" \
+  ai-base-url="http://192.168.1.100:11434/v1"
+```
+
+The charm will regenerate `openclaw.json` and restart the service automatically. 
+
+**Note:** Existing chat sessions will continue using their original model until you start a new session. See the "Important Note" section below for details on session model persistence.
+
+**Important:** When using Ollama's OpenAI-compatible API, you **must** include the `/v1` path in the base URL:
+
+- ✅ Correct: `http://192.168.1.100:11434/v1`
+- ❌ Wrong: `http://192.168.1.100:11434`
+
+The `/v1` path is required because:
+- Ollama exposes two APIs: native Ollama API at `/api/*` and OpenAI-compatible API at `/v1/*`
+- OpenClaw uses the OpenAI SDK which expects endpoints like `/v1/chat/completions`
+- Without `/v1`, the API calls will fail
+
+**Verify your Ollama endpoint:**
+
+```bash
+# Test Ollama OpenAI-compatible API
+curl http://192.168.1.100:11434/v1/models
+
+# Should return JSON with model list
+```
+
+**Example with local Ollama:**
+
+```bash
+# If Ollama is running on 203.0.113.50
+juju config openclaw \
+  ai-provider="openai" \
+  ai-model="ministral-3:14b" \
+  ai-api-key="ollama" \
+  ai-base-url="http://203.0.113.50:11434/v1"
 ```
 
 ---
@@ -560,6 +601,22 @@ juju config openclaw \
 ```bash
 # Check all configured models
 juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/agents/main/agent/auth-profiles.json | jq .'
+```
+
+**Important Note:** Existing chat sessions retain their original model configuration even after you change the charm config. To use the new model:
+
+1. **Start a new session/conversation** - New sessions automatically use the updated model from `openclaw.json`
+2. **Or clear existing session** - Close your current chat and start fresh
+
+This is by design - OpenClaw sessions maintain their own model settings independently, allowing different conversations to use different models simultaneously.
+
+**Verify which model a session is using:**
+```bash
+# Check current session model
+juju ssh openclaw/0 'cat ~/.openclaw/agents/main/sessions/sessions.json | jq ".\"agent:main:main\".model"'
+
+# Check default model in config
+juju ssh openclaw/0 'cat ~/.openclaw/openclaw.json | jq .agents.defaults.model.primary'
 ```
 
 ---

@@ -272,6 +272,7 @@ ensure_chrome_installed() {
 # Generate OpenClaw configuration
 generate_config() {
     local config_file="/home/ubuntu/.openclaw/openclaw.json"
+    local temp_file="${config_file}.tmp"
     local ai_provider ai_model api_key
     local gateway_port gateway_bind log_level
     
@@ -282,38 +283,50 @@ generate_config() {
     gateway_bind="$(config-get gateway-bind)"
     log_level="$(config-get log-level)"
     
-    log_info "Generating OpenClaw configuration"
+    log_info "Generating OpenClaw configuration using jq"
     
-    # Generate gateway token (48 hex chars)
     local gateway_token
-    gateway_token=$(openssl rand -hex 24)
+    if [ -f "$config_file" ]; then
+        gateway_token=$(jq -r '.gateway.auth.token // empty' "$config_file" 2>/dev/null || echo "")
+        if [ -n "$gateway_token" ]; then
+            log_info "Preserving existing gateway token"
+        fi
+    fi
     
-    # Build minimal config with new format
-    cat > "$config_file" <<EOF
-{
-  "gateway": {
-    "mode": "local",
-    "auth": {
-      "mode": "token",
-      "token": "${gateway_token}"
-    },
-    "bind": "${gateway_bind}",
-    "port": ${gateway_port}
-  },
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "${ai_provider}/${ai_model}"
-      }
-    }
-  },
-  "logging": {
-    "level": "${log_level}"
-  },
-  "channels": {
-EOF
+    if [ -z "$gateway_token" ]; then
+        gateway_token=$(openssl rand -hex 24)
+        log_info "Generated new gateway token"
+    fi
     
-    # Add platform-specific messenger configs
+    echo '{}' | jq \
+        --arg token "$gateway_token" \
+        --arg bind "$gateway_bind" \
+        --argjson port "$gateway_port" \
+        --arg model "${ai_provider}/${ai_model}" \
+        --arg log_level "$log_level" \
+        '{
+            gateway: {
+                mode: "local",
+                auth: {
+                    mode: "token",
+                    token: $token
+                },
+                bind: $bind,
+                port: $port
+            },
+            agents: {
+                defaults: {
+                    model: {
+                        primary: $model
+                    }
+                }
+            },
+            logging: {
+                level: $log_level
+            },
+            channels: {}
+        }' > "$temp_file"
+    
     local telegram_bot_token discord_bot_token slack_bot_token slack_app_token
     local line_channel_access_token line_channel_secret
     telegram_bot_token="$(config-get telegram-bot-token)"
@@ -324,63 +337,42 @@ EOF
     line_channel_secret="$(config-get line-channel-secret)"
     
     if [ -n "$telegram_bot_token" ]; then
-        cat >> "$config_file" <<EOF
-    "telegram": {
-      "botToken": "${telegram_bot_token}"
-    },
-EOF
+        jq --arg token "$telegram_bot_token" \
+           '.channels.telegram = {botToken: $token}' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
     if [ -n "$discord_bot_token" ]; then
-        cat >> "$config_file" <<EOF
-    "discord": {
-      "token": "${discord_bot_token}"
-    },
-EOF
+        jq --arg token "$discord_bot_token" \
+           '.channels.discord = {token: $token}' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
     if [ -n "$slack_bot_token" ] && [ -n "$slack_app_token" ]; then
-        cat >> "$config_file" <<EOF
-    "slack": {
-      "botToken": "${slack_bot_token}",
-      "appToken": "${slack_app_token}"
-    },
-EOF
+        jq --arg bot_token "$slack_bot_token" \
+           --arg app_token "$slack_app_token" \
+           '.channels.slack = {botToken: $bot_token, appToken: $app_token}' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
     if [ -n "$line_channel_access_token" ] && [ -n "$line_channel_secret" ]; then
-        cat >> "$config_file" <<EOF
-    "line": {
-      "dmPolicy": "pairing",
-      "channelAccessToken": "${line_channel_access_token}",
-      "channelSecret": "${line_channel_secret}"
-    },
-EOF
+        jq --arg access_token "$line_channel_access_token" \
+           --arg secret "$line_channel_secret" \
+           '.channels.line = {dmPolicy: "pairing", channelAccessToken: $access_token, channelSecret: $secret}' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
-    # Close channels object (remove trailing comma if exists)
-    sed -i '$ s/,$//' "$config_file"
-
-    cat >> "$config_file" <<EOF
-  }
-EOF
-
-    # Collect all providers with custom baseUrl (primary + ai0-ai9)
-    local providers_with_baseurl=""
-    local provider_count=0
-    
-    # Check primary AI provider baseUrl
     local base_url
     base_url="$(config-get ai-base-url)"
+    
     if [ -n "$base_url" ] && [ -n "$ai_provider" ]; then
         log_info "Adding custom base URL for primary provider ($ai_provider): $base_url"
-        providers_with_baseurl="      \"${ai_provider}\": {
-        \"baseUrl\": \"${base_url}\"
-      }"
-        provider_count=$((provider_count + 1))
+        jq --arg provider "$ai_provider" \
+           --arg baseUrl "$base_url" \
+           '.models.providers[$provider] = {baseUrl: $baseUrl, models: []}' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
-    # Check additional AI slots (ai0-ai9) for custom baseUrls
     for i in 0 1 2 3 4 5 6 7 8 9; do
         local slot_provider slot_base_url
         slot_provider="$(config-get "ai${i}-provider")"
@@ -388,35 +380,14 @@ EOF
         
         if [ -n "$slot_provider" ] && [ -n "$slot_base_url" ]; then
             log_info "Adding custom base URL for slot $i provider ($slot_provider): $slot_base_url"
-            
-            # Add comma separator if not first provider
-            if [ $provider_count -gt 0 ]; then
-                providers_with_baseurl="${providers_with_baseurl},"
-            fi
-            
-            providers_with_baseurl="${providers_with_baseurl}
-      \"${slot_provider}\": {
-        \"baseUrl\": \"${slot_base_url}\"
-      }"
-            provider_count=$((provider_count + 1))
+            jq --arg provider "$slot_provider" \
+               --arg baseUrl "$slot_base_url" \
+               '.models.providers[$provider] = {baseUrl: $baseUrl, models: []}' \
+               "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
         fi
     done
     
-    # Add models.providers section if any baseUrls were configured
-    if [ $provider_count -gt 0 ]; then
-        cat >> "$config_file" <<EOF
-,
-  "models": {
-    "providers": {
-$providers_with_baseurl
-    }
-  }
-}
-EOF
-    else
-        # No models.providers needed, just close root JSON object
-        printf "\n}\n" >> "$config_file"
-    fi
+    mv "$temp_file" "$config_file"
 
     # Set environment variables for API keys
     local env_file="/home/ubuntu/.openclaw/environment"
@@ -438,67 +409,51 @@ EOF
     local session_dir="/home/ubuntu/.openclaw/agents/main/sessions"
     mkdir -p "$agent_dir" "$session_dir"
 
-    # Configure auth profiles for OpenClaw 2026.x (required for agent authentication)
-    # OpenClaw 2026.x requires API keys in auth-profiles.json, not environment variables
     local auth_file="$agent_dir/auth-profiles.json"
-    local profiles_json=""
-    local profile_count=0
-
-    # Add primary AI model profile
+    local auth_temp="${auth_file}.tmp"
+    
+    echo '{"version": 1, "profiles": {}}' > "$auth_temp"
+    
     if [ -n "$api_key" ] && [ -n "$ai_provider" ]; then
         local profile_id="${ai_provider}:manual"
-
         log_info "Configuring primary auth profile for provider: $ai_provider"
-
-        profiles_json="    \"$profile_id\": {
-      \"type\": \"token\",
-      \"provider\": \"$ai_provider\",
-      \"key\": \"$api_key\"
-    }"
-        profile_count=$((profile_count + 1))
+        
+        jq --arg id "$profile_id" \
+           --arg provider "$ai_provider" \
+           --arg token "$api_key" \
+           '.profiles[$id] = {type: "token", provider: $provider, token: $token}' \
+           "$auth_temp" > "${auth_temp}.2" && mv "${auth_temp}.2" "$auth_temp"
     fi
-
-    # Add additional AI model profiles (ai0-ai9)
+    
     for i in 0 1 2 3 4 5 6 7 8 9; do
-        local slot_provider slot_model slot_api_key slot_base_url
+        local slot_provider slot_model slot_api_key
         slot_provider="$(config-get "ai${i}-provider")"
         slot_model="$(config-get "ai${i}-model")"
         slot_api_key="$(config-get "ai${i}-api-key")"
-        slot_base_url="$(config-get "ai${i}-base-url")"
-
+        
         if [ -n "$slot_provider" ] && [ -n "$slot_model" ] && [ -n "$slot_api_key" ]; then
             local slot_profile_id="${slot_provider}:slot${i}"
-
             log_info "Configuring auth profile for slot $i: $slot_provider/$slot_model"
-
-            # Add comma separator if not first profile
-            if [ $profile_count -gt 0 ]; then
-                profiles_json="${profiles_json},"
-            fi
-
-            profiles_json="${profiles_json}
-    \"$slot_profile_id\": {
-      \"type\": \"token\",
-      \"provider\": \"$slot_provider\",
-      \"key\": \"$slot_api_key\"
-    }"
-            profile_count=$((profile_count + 1))
+            
+            jq --arg id "$slot_profile_id" \
+               --arg provider "$slot_provider" \
+               --arg token "$slot_api_key" \
+               '.profiles[$id] = {type: "token", provider: $provider, token: $token}' \
+               "$auth_temp" > "${auth_temp}.2" && mv "${auth_temp}.2" "$auth_temp"
         fi
     done
-
-    # Write auth-profiles.json if we have any profiles
-    if [ $profile_count -gt 0 ]; then
-        cat > "$auth_file" <<EOF
-{
-  "version": 1,
-  "profiles": {
-$profiles_json
-  }
-}
-EOF
-        chown ubuntu:ubuntu "$auth_file"
-        chmod 600 "$auth_file"
-        log_info "Auth profile created at $auth_file with $profile_count profile(s)"
+    
+    if [ -s "$auth_temp" ]; then
+        local profile_count
+        profile_count=$(jq '.profiles | length' "$auth_temp")
+        if [ "$profile_count" -gt 0 ]; then
+            mv "$auth_temp" "$auth_file"
+            chown ubuntu:ubuntu "$auth_file"
+            chmod 600 "$auth_file"
+            log_info "Auth profile created at $auth_file with $profile_count profile(s)"
+        else
+            rm -f "$auth_temp"
+        fi
     fi
 
     # Set proper ownership and permissions for all OpenClaw directories
