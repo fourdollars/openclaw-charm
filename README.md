@@ -189,6 +189,34 @@ juju config openclaw \
   ai-model="llama3"
 ```
 
+**Local Models (LM Studio)**
+
+```bash
+juju config openclaw \
+  ai-provider="openai" \
+  ai-api-key="lm-studio" \
+  ai-model="local-model" \
+  ai-base-url="http://localhost:1234/v1"
+```
+
+**Other OpenAI-compatible Services**
+
+```bash
+# vLLM
+juju config openclaw \
+  ai-provider="openai" \
+  ai-api-key="dummy-key" \
+  ai-model="meta-llama/Llama-3.3-70B-Instruct" \
+  ai-base-url="http://localhost:8000/v1"
+
+# Text Generation WebUI
+juju config openclaw \
+  ai-provider="openai" \
+  ai-api-key="dummy-key" \
+  ai-model="local-model" \
+  ai-base-url="http://localhost:5000/v1"
+```
+
 ### Multi-AI Model Support
 
 OpenClaw Charm supports configuring up to 11 AI models simultaneously (1 primary + 10 additional slots). This enables model switching, fallback, and specialized model usage for different tasks.
@@ -221,19 +249,50 @@ juju config openclaw \
 
 **All AI Slots:**
 
-- Primary: `ai-provider`, `ai-model`, `ai-api-key`
-- Slot 0: `ai0-provider`, `ai0-model`, `ai0-api-key`
-- Slot 1: `ai1-provider`, `ai1-model`, `ai1-api-key`
-- Slot 2: `ai2-provider`, `ai2-model`, `ai2-api-key`
-- Slot 3: `ai3-provider`, `ai3-model`, `ai3-api-key`
-- Slot 4: `ai4-provider`, `ai4-model`, `ai4-api-key`
-- Slot 5: `ai5-provider`, `ai5-model`, `ai5-api-key`
-- Slot 6: `ai6-provider`, `ai6-model`, `ai6-api-key`
-- Slot 7: `ai7-provider`, `ai7-model`, `ai7-api-key`
-- Slot 8: `ai8-provider`, `ai8-model`, `ai8-api-key`
-- Slot 9: `ai9-provider`, `ai9-model`, `ai9-api-key`
+- Primary: `ai-provider`, `ai-model`, `ai-api-key`, `ai-base-url` (optional)
+- Slot 0: `ai0-provider`, `ai0-model`, `ai0-api-key`, `ai0-base-url` (optional)
+- Slot 1: `ai1-provider`, `ai1-model`, `ai1-api-key`, `ai1-base-url` (optional)
+- Slot 2: `ai2-provider`, `ai2-model`, `ai2-api-key`, `ai2-base-url` (optional)
+- Slot 3: `ai3-provider`, `ai3-model`, `ai3-api-key`, `ai3-base-url` (optional)
+- Slot 4: `ai4-provider`, `ai4-model`, `ai4-api-key`, `ai4-base-url` (optional)
+- Slot 5: `ai5-provider`, `ai5-model`, `ai5-api-key`, `ai5-base-url` (optional)
+- Slot 6: `ai6-provider`, `ai6-model`, `ai6-api-key`, `ai6-base-url` (optional)
+- Slot 7: `ai7-provider`, `ai7-model`, `ai7-api-key`, `ai7-base-url` (optional)
+- Slot 8: `ai8-provider`, `ai8-model`, `ai8-api-key`, `ai8-base-url` (optional)
+- Slot 9: `ai9-provider`, `ai9-model`, `ai9-api-key`, `ai9-base-url` (optional)
 
-**Note:** Each slot requires all three parameters (provider, model, api-key) to be configured. Partially configured slots will trigger validation errors.
+**Note:** Each slot requires at minimum the three core parameters (provider, model, api-key). The `base-url` parameter is optional and only needed for custom API endpoints. Partially configured slots will trigger validation errors.
+
+**Using Custom Base URLs with Multiple Models:**
+
+```bash
+# Mix cloud and local AI models
+juju config openclaw \
+  ai-provider="anthropic" \
+  ai-api-key="sk-ant-xxx" \
+  ai-model="claude-opus-4-5"
+
+# Add LM Studio instance in slot 0
+juju config openclaw \
+  ai0-provider="openai" \
+  ai0-api-key="lm-studio" \
+  ai0-model="local-llama3" \
+  ai0-base-url="http://localhost:1234/v1"
+
+# Add vLLM instance in slot 1
+juju config openclaw \
+  ai1-provider="openai" \
+  ai1-api-key="vllm-key" \
+  ai1-model="meta-llama/Llama-3.3-70B-Instruct" \
+  ai1-base-url="http://192.168.1.100:8000/v1"
+```
+
+This configuration creates:
+- Primary model using Anthropic's cloud API
+- Slot 0 using LM Studio running locally
+- Slot 1 using a vLLM server on your network
+
+OpenClaw will generate the appropriate `models.providers` configuration in `openclaw.json` with custom baseUrls for each provider that has one specified.
 
 ### Messaging Channels
 
@@ -320,9 +379,11 @@ juju config openclaw enable-browser-tool=true
 | `ai-provider` | string | - | AI provider: anthropic, openai, google, bedrock, ollama |
 | `ai-model` | string | - | AI model name |
 | `ai-api-key` | string | - | API key for selected provider |
+| `ai-base-url` | string | - | Custom API base URL (for LM Studio, vLLM, etc.) |
 | `ai0-provider` ... `ai9-provider` | string | - | Additional AI provider slots (0-9) |
 | `ai0-model` ... `ai9-model` | string | - | Additional AI model name slots (0-9) |
 | `ai0-api-key` ... `ai9-api-key` | string | - | Additional AI API key slots (0-9) |
+| `ai0-base-url` ... `ai9-base-url` | string | - | Custom API base URL for additional slots (0-9) |
 | `telegram-bot-token` | string | - | Telegram bot token from @BotFather |
 | `discord-bot-token` | string | - | Discord bot token |
 | `slack-bot-token` | string | - | Slack bot token (xoxb-...) |

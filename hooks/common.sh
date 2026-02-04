@@ -360,12 +360,63 @@ EOF
     
     # Close channels object (remove trailing comma if exists)
     sed -i '$ s/,$//' "$config_file"
-    
+
     cat >> "$config_file" <<EOF
+  },
+EOF
+
+    # Collect all providers with custom baseUrl (primary + ai0-ai9)
+    local providers_with_baseurl=""
+    local provider_count=0
+    
+    # Check primary AI provider baseUrl
+    local base_url
+    base_url="$(config-get ai-base-url)"
+    if [ -n "$base_url" ] && [ -n "$ai_provider" ]; then
+        log_info "Adding custom base URL for primary provider ($ai_provider): $base_url"
+        providers_with_baseurl="      \"${ai_provider}\": {
+        \"baseUrl\": \"${base_url}\"
+      }"
+        provider_count=$((provider_count + 1))
+    fi
+    
+    # Check additional AI slots (ai0-ai9) for custom baseUrls
+    for i in 0 1 2 3 4 5 6 7 8 9; do
+        local slot_provider slot_base_url
+        slot_provider="$(config-get "ai${i}-provider")"
+        slot_base_url="$(config-get "ai${i}-base-url")"
+        
+        if [ -n "$slot_provider" ] && [ -n "$slot_base_url" ]; then
+            log_info "Adding custom base URL for slot $i provider ($slot_provider): $slot_base_url"
+            
+            # Add comma separator if not first provider
+            if [ $provider_count -gt 0 ]; then
+                providers_with_baseurl="${providers_with_baseurl},"
+            fi
+            
+            providers_with_baseurl="${providers_with_baseurl}
+      \"${slot_provider}\": {
+        \"baseUrl\": \"${slot_base_url}\"
+      }"
+            provider_count=$((provider_count + 1))
+        fi
+    done
+    
+    # Add models.providers section if any baseUrls were configured
+    if [ $provider_count -gt 0 ]; then
+        cat >> "$config_file" <<EOF
+  "models": {
+    "providers": {
+$providers_with_baseurl
+    }
   }
 }
 EOF
-    
+    else
+        # No models.providers needed, just close root JSON object
+        printf "}\n" >> "$config_file"
+    fi
+
     # Set environment variables for API keys
     local env_file="/home/ubuntu/.openclaw/environment"
     cat > "$env_file" <<EOF
@@ -375,81 +426,65 @@ NODE_VERSION=$(config-get node-version)
 OPENCLAW_GATEWAY_PORT=${gateway_port}
 OPENCLAW_GATEWAY_BIND=${gateway_bind}
 EOF
-    
 
-    
-    # Set API key based on provider (legacy environment variable support)
-    if [ -n "$api_key" ]; then
-        case "$ai_provider" in
-            anthropic)
-                echo "ANTHROPIC_API_KEY=${api_key}" >> "$env_file"
-                ;;
-            openai)
-                echo "OPENAI_API_KEY=${api_key}" >> "$env_file"
-                ;;
-            google)
-                echo "GOOGLE_API_KEY=${api_key}" >> "$env_file"
-                ;;
-        esac
-    fi
-    
     # Set ownership and permissions (600 for config as it contains token)
     chown ubuntu:ubuntu "$config_file" "$env_file"
     chmod 600 "$config_file"
     chmod 600 "$env_file"
-    
+
     # Create agent directory structure
     local agent_dir="/home/ubuntu/.openclaw/agents/main/agent"
     local session_dir="/home/ubuntu/.openclaw/agents/main/sessions"
     mkdir -p "$agent_dir" "$session_dir"
-    
+
     # Configure auth profiles for OpenClaw 2026.x (required for agent authentication)
     # OpenClaw 2026.x requires API keys in auth-profiles.json, not environment variables
     local auth_file="$agent_dir/auth-profiles.json"
     local profiles_json=""
     local profile_count=0
-    
+
     # Add primary AI model profile
     if [ -n "$api_key" ] && [ -n "$ai_provider" ]; then
         local profile_id="${ai_provider}:manual"
-        
+
         log_info "Configuring primary auth profile for provider: $ai_provider"
-        
+
         profiles_json="    \"$profile_id\": {
-      \"type\": \"api_key\",
+      \"type\": \"token\",
       \"provider\": \"$ai_provider\",
       \"key\": \"$api_key\"
     }"
         profile_count=$((profile_count + 1))
     fi
-    
+
     # Add additional AI model profiles (ai0-ai9)
     for i in 0 1 2 3 4 5 6 7 8 9; do
-        local slot_provider slot_model slot_api_key
+        local slot_provider slot_model slot_api_key slot_base_url
         slot_provider="$(config-get "ai${i}-provider")"
         slot_model="$(config-get "ai${i}-model")"
         slot_api_key="$(config-get "ai${i}-api-key")"
-        
+        slot_base_url="$(config-get "ai${i}-base-url")"
+
         if [ -n "$slot_provider" ] && [ -n "$slot_model" ] && [ -n "$slot_api_key" ]; then
             local slot_profile_id="${slot_provider}:slot${i}"
-            
+
             log_info "Configuring auth profile for slot $i: $slot_provider/$slot_model"
-            
+
             # Add comma separator if not first profile
             if [ $profile_count -gt 0 ]; then
                 profiles_json="${profiles_json},"
             fi
-            
+
             profiles_json="${profiles_json}
     \"$slot_profile_id\": {
-      \"type\": \"api_key\",
+      \"type\": \"token\",
       \"provider\": \"$slot_provider\",
       \"key\": \"$slot_api_key\"
     }"
             profile_count=$((profile_count + 1))
         fi
     done
-    
+
     # Write auth-profiles.json if we have any profiles
     if [ $profile_count -gt 0 ]; then
         cat > "$auth_file" <<EOF
@@ -464,11 +499,11 @@ EOF
         chmod 600 "$auth_file"
         log_info "Auth profile created at $auth_file with $profile_count profile(s)"
     fi
-    
+
     # Set proper ownership and permissions for all OpenClaw directories
     chown -R ubuntu:ubuntu /home/ubuntu/.openclaw
     chmod 700 /home/ubuntu/.openclaw
-    
+
     log_info "Configuration generated at $config_file"
 }
 
@@ -771,15 +806,19 @@ validate_config() {
     ai_provider="$(config-get ai-provider)"
     
     if [ -z "$ai_provider" ]; then
-        log_error "ai-provider must be configured (anthropic, openai, google, bedrock, or ollama)"
+        log_error "ai-provider must be configured"
+        log_error "Supported providers: anthropic, openai, openai-codex, google, opencode, github-copilot, openrouter, xai, groq, cerebras, mistral, zai, vercel-ai-gateway, ollama, bedrock"
         errors=$((errors + 1))
     else
         case "$ai_provider" in
-            anthropic|openai|google)
+            anthropic|openai|google|opencode|github-copilot|openrouter|xai|groq|cerebras|mistral|zai|vercel-ai-gateway)
                 if [ -z "$(config-get ai-api-key)" ]; then
                     log_error "$ai_provider provider selected but no API key configured"
                     errors=$((errors + 1))
                 fi
+                ;;
+            openai-codex)
+                log_info "OpenAI Codex provider selected - uses OAuth authentication (no API key needed)"
                 ;;
             ollama)
                 log_info "Ollama provider selected - ensure Ollama is installed and running separately"
@@ -788,7 +827,8 @@ validate_config() {
                 log_info "AWS Bedrock provider selected - ensure AWS credentials are configured"
                 ;;
             *)
-                log_error "Invalid ai-provider: $ai_provider (valid: anthropic, openai, google, bedrock, ollama)"
+                log_error "Invalid ai-provider: $ai_provider"
+                log_error "Supported providers: anthropic, openai, openai-codex, google, opencode, github-copilot, openrouter, xai, groq, cerebras, mistral, zai, vercel-ai-gateway, ollama, bedrock"
                 errors=$((errors + 1))
                 ;;
         esac
@@ -802,12 +842,22 @@ validate_config() {
         errors=$((errors + 1))
     fi
     
+    local ai_base_url
+    ai_base_url="$(config-get ai-base-url)"
+    if [ -n "$ai_base_url" ]; then
+        if ! echo "$ai_base_url" | grep -qE '^https?://'; then
+            log_error "ai-base-url must start with http:// or https://"
+            errors=$((errors + 1))
+        fi
+    fi
+    
     # Validate additional AI model slots (ai0-ai9)
     for i in 0 1 2 3 4 5 6 7 8 9; do
-        local slot_provider slot_model slot_api_key
+        local slot_provider slot_model slot_api_key slot_base_url
         slot_provider="$(config-get "ai${i}-provider")"
         slot_model="$(config-get "ai${i}-model")"
         slot_api_key="$(config-get "ai${i}-api-key")"
+        slot_base_url="$(config-get "ai${i}-base-url")"
         
         # If any ai slot config is provided, validate completeness
         if [ -n "$slot_provider" ] || [ -n "$slot_model" ] || [ -n "$slot_api_key" ]; then
@@ -821,14 +871,17 @@ validate_config() {
                 errors=$((errors + 1))
             fi
             
-            # Validate API key requirement for non-ollama/bedrock providers
+            # Validate API key requirement for providers
             if [ -n "$slot_provider" ]; then
                 case "$slot_provider" in
-                    anthropic|openai|google)
+                    anthropic|openai|google|opencode|github-copilot|openrouter|xai|groq|cerebras|mistral|zai|vercel-ai-gateway)
                         if [ -z "$slot_api_key" ]; then
                             log_error "AI slot $i: $slot_provider provider requires ai${i}-api-key"
                             errors=$((errors + 1))
                         fi
+                        ;;
+                    openai-codex)
+                        log_info "AI slot $i: OpenAI Codex provider (OAuth, no API key needed)"
                         ;;
                     ollama)
                         log_info "AI slot $i: Ollama provider selected"
@@ -838,9 +891,17 @@ validate_config() {
                         ;;
                     *)
                         log_error "AI slot $i: Invalid provider $slot_provider"
+                        log_error "Supported: anthropic, openai, openai-codex, google, opencode, github-copilot, openrouter, xai, groq, cerebras, mistral, zai, vercel-ai-gateway, ollama, bedrock"
                         errors=$((errors + 1))
                         ;;
                 esac
+            fi
+        fi
+        
+        if [ -n "$slot_base_url" ]; then
+            if ! echo "$slot_base_url" | grep -qE '^https?://'; then
+                log_error "AI slot $i: ai${i}-base-url must start with http:// or https://"
+                errors=$((errors + 1))
             fi
         fi
     done

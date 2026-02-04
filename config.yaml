@@ -23,7 +23,22 @@ options:
     type: string
     default: ""
     description: |
-      Primary AI model provider: 'anthropic', 'openai', 'google', 'bedrock', or 'ollama'
+      Primary AI model provider. Supported providers:
+      - anthropic: Anthropic Claude models
+      - openai: OpenAI GPT models  
+      - openai-codex: OpenAI Codex (requires OAuth)
+      - google: Google Gemini models
+      - opencode: OpenCode Zen models
+      - github-copilot: GitHub Copilot/Models API
+      - openrouter: OpenRouter aggregator
+      - xai: xAI models
+      - groq: Groq models
+      - cerebras: Cerebras models
+      - mistral: Mistral AI models
+      - zai: Z.AI (GLM) models
+      - vercel-ai-gateway: Vercel AI Gateway
+      - ollama: Local Ollama models (no API key needed)
+      - bedrock: AWS Bedrock (uses AWS credentials)
   
   ai-model:
     type: string
@@ -34,16 +49,41 @@ options:
     type: string
     default: ""
     description: |
-      API key for the selected AI provider (anthropic, openai, or google).
-      For Anthropic: Anthropic API key
-      For OpenAI: OpenAI API key
-      For Google: Google Gemini API key
+      API key for the selected AI provider. Required for most providers:
+      - anthropic: Anthropic API key
+      - openai: OpenAI API key
+      - google: Google Gemini API key
+      - opencode: OpenCode API key
+      - github-copilot: GitHub personal access token
+      - openrouter: OpenRouter API key
+      - xai: xAI API key
+      - groq: Groq API key
+      - cerebras: Cerebras API key
+      - mistral: Mistral API key
+      - zai: Z.AI API key
+      - vercel-ai-gateway: Vercel AI Gateway API key
+      Not required for: ollama (local), bedrock (AWS credentials), openai-codex (OAuth)
+      
+      Note: API keys are stored securely in auth-profiles.json, not in environment variables.
+  
+  ai-base-url:
+    type: string
+    default: ""
+    description: |
+      Custom API base URL for OpenAI-compatible providers. 
+      Use this to connect to local AI services like LM Studio, vLLM, FastChat, etc.
+      Examples:
+      - LM Studio: http://localhost:1234/v1
+      - vLLM: http://localhost:8000/v1
+      - Text Generation WebUI: http://localhost:5000/v1
+      Leave empty to use default provider endpoints.
   
   # Additional AI models (ai0 through ai9) for multi-model support
   ai0-provider:
     type: string
     default: ""
-    description: AI provider for model slot 0 (anthropic, openai, google, bedrock, ollama)
+    description: |
+      AI provider for model slot 0. See ai-provider for supported providers.
   
   ai0-model:
     type: string
@@ -55,10 +95,15 @@ options:
     default: ""
     description: API key for AI model slot 0
   
+  ai0-base-url:
+    type: string
+    default: ""
+    description: Custom API base URL for AI model slot 0 (for OpenAI-compatible local services)
+  
   ai1-provider:
     type: string
     default: ""
-    description: AI provider for model slot 1 (anthropic, openai, google, bedrock, ollama)
+    description: AI provider for model slot 1. See ai-provider for supported providers.
   
   ai1-model:
     type: string
@@ -70,10 +115,15 @@ options:
     default: ""
     description: API key for AI model slot 1
   
+  ai1-base-url:
+    type: string
+    default: ""
+    description: Custom API base URL for AI model slot 1 (for OpenAI-compatible local services)
+  
   ai2-provider:
     type: string
     default: ""
-    description: AI provider for model slot 2 (anthropic, openai, google, bedrock, ollama)
+    description: AI provider for model slot 2. See ai-provider for supported providers.
   
   ai2-model:
     type: string
@@ -85,10 +135,15 @@ options:
     default: ""
     description: API key for AI model slot 2
   
+  ai2-base-url:
+    type: string
+    default: ""
+    description: Custom API base URL for AI model slot 2 (for OpenAI-compatible local services)
+  
   ai3-provider:
     type: string
     default: ""
-    description: AI provider for model slot 3 (anthropic, openai, google, bedrock, ollama)
+    description: AI provider for model slot 3. See ai-provider for supported providers.
   
   ai3-model:
     type: string
@@ -100,10 +155,15 @@ options:
     default: ""
     description: API key for AI model slot 3
   
+  ai3-base-url:
+    type: string
+    default: ""
+    description: Custom API base URL for AI model slot 3 (for OpenAI-compatible local services)
+  
   ai4-provider:
     type: string
     default: ""
-    description: AI provider for model slot 4 (anthropic, openai, google, bedrock, ollama)
+    description: AI provider for model slot 4. See ai-provider for supported providers.
   
   ai4-model:
     type: string
@@ -115,10 +175,15 @@ options:
     default: ""
     description: API key for AI model slot 4
   
+  ai4-base-url:
+    type: string
+    default: ""
+    description: Custom API base URL for AI model slot 4 (for OpenAI-compatible local services)
+  
   ai5-provider:
     type: string
     default: ""
-    description: AI provider for model slot 5 (anthropic, openai, google, bedrock, ollama)
+    description: AI provider for model slot 5. See ai-provider for supported providers.
   
   ai5-model:
     type: string
@@ -130,10 +195,15 @@ options:
     default: ""
     description: API key for AI model slot 5
   
+  ai5-base-url:
+    type: string
+    default: ""
+    description: Custom API base URL for AI model slot 5 (for OpenAI-compatible local services)
+  
   ai6-provider:
     type: string
     default: ""
-    description: AI provider for model slot 6 (anthropic, openai, google, bedrock, ollama)
+    description: AI provider for model slot 6. See ai-provider for supported providers.
   
   ai6-model:
     type: string
@@ -145,10 +215,15 @@ options:
     default: ""
     description: API key for AI model slot 6
   
+  ai6-base-url:
+    type: string
+    default: ""
+    description: Custom API base URL for AI model slot 6 (for OpenAI-compatible local services)
+  
   ai7-provider:
     type: string
     default: ""
-    description: AI provider for model slot 7 (anthropic, openai, google, bedrock, ollama)
+    description: AI provider for model slot 7. See ai-provider for supported providers.
   
   ai7-model:
     type: string
@@ -160,10 +235,15 @@ options:
     default: ""
     description: API key for AI model slot 7
   
+  ai7-base-url:
+    type: string
+    default: ""
+    description: Custom API base URL for AI model slot 7 (for OpenAI-compatible local services)
+  
   ai8-provider:
     type: string
     default: ""
-    description: AI provider for model slot 8 (anthropic, openai, google, bedrock, ollama)
+    description: AI provider for model slot 8. See ai-provider for supported providers.
   
   ai8-model:
     type: string
@@ -175,10 +255,15 @@ options:
     default: ""
     description: API key for AI model slot 8
   
+  ai8-base-url:
+    type: string
+    default: ""
+    description: Custom API base URL for AI model slot 8 (for OpenAI-compatible local services)
+  
   ai9-provider:
     type: string
     default: ""
-    description: AI provider for model slot 9 (anthropic, openai, google, bedrock, ollama)
+    description: AI provider for model slot 9. See ai-provider for supported providers.
   
   ai9-model:
     type: string
@@ -189,6 +274,11 @@ options:
     type: string
     default: ""
     description: API key for AI model slot 9
+  
+  ai9-base-url:
+    type: string
+    default: ""
+    description: Custom API base URL for AI model slot 9 (for OpenAI-compatible local services)
   
   telegram-bot-token:
     type: string
