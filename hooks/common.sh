@@ -33,7 +33,11 @@ run_systemctl_user() {
 # Returns: "true" if charm manages config (manual=false), "false" if user manages (manual=true)
 should_manage_config() {
     local manual_mode
-    manual_mode="$(config-get manual | tr '[:upper:]' '[:lower:]')"
+    local manual_raw
+    manual_raw="$(config-get manual)"
+    manual_mode="$(echo "$manual_raw" | tr '[:upper:]' '[:lower:]')"
+    
+    log_debug "manual config check: raw='$manual_raw' normalized='$manual_mode'"
     
     if [ "$manual_mode" = "true" ]; then
         log_debug "Manual mode enabled - charm will not manage configuration"
