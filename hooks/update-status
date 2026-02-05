@@ -29,7 +29,10 @@ if [ "$ROLE" = "gateway" ]; then
             fi
         fi
         
-        if validate_config; then
+        # Check if manual mode is enabled
+        if [ "$(should_manage_config)" = "false" ]; then
+            status-set active "Gateway: $url (manual mode)"
+        elif validate_config; then
             status-set active "Gateway: $url"
         else
             status-set blocked "Gateway running but configuration incomplete"
@@ -43,15 +46,21 @@ else
     if [[ "$service_state" == *"active"* ]] || [[ "$service_state" == *"auto-restart"* ]]; then
         read -r gateway_unit gateway_host gateway_port _ <<< "$(get_gateway_info)"
         
+        # Check if manual mode is enabled
+        manual_suffix=""
+        if [ "$(should_manage_config)" = "false" ]; then
+            manual_suffix=" (manual mode)"
+        fi
+        
         if [ -z "$gateway_host" ] || [ -z "$gateway_port" ]; then
             status-set blocked "Waiting for Gateway connection info"
         elif ! check_gateway_connection; then
             status-set blocked "Cannot reach Gateway at ${gateway_host}:${gateway_port}"
         elif is_node_paired; then
             if [ -n "$gateway_unit" ]; then
-                status-set active "Node - connected to ${gateway_unit}"
+                status-set active "Node - connected to ${gateway_unit}${manual_suffix}"
             elif [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
-                status-set active "Node connected to ${gateway_host}:${gateway_port}"
+                status-set active "Node connected to ${gateway_host}:${gateway_port}${manual_suffix}"
             else
                 status-set blocked "Waiting for Gateway connection info"
             fi
