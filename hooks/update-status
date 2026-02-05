@@ -30,12 +30,10 @@ if [ "$ROLE" = "gateway" ]; then
         fi
         
         # Check if manual mode is enabled
-        manual_config_value="$(config-get manual)"
-        should_manage_result="$(should_manage_config)"
-        if [ "$should_manage_result" = "false" ]; then
-            status-set active "Gateway: $url (manual mode) DEBUG:cfg=$manual_config_value:should=$should_manage_result"
+        if [ "$(should_manage_config)" = "false" ]; then
+            status-set active "Gateway: $url (manual mode)"
         elif validate_config; then
-            status-set active "Gateway: $url DEBUG:cfg=$manual_config_value:should=$should_manage_result"
+            status-set active "Gateway: $url"
         else
             status-set blocked "Gateway running but configuration incomplete"
         fi

@@ -419,6 +419,20 @@ generate_config() {
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
+    # Add additional AI models (ai0-ai9) as fallbacks
+    for i in 0 1 2 3 4 5 6 7 8 9; do
+        local slot_provider slot_model
+        slot_provider="$(config-get "ai${i}-provider")"
+        slot_model="$(config-get "ai${i}-model")"
+        
+        if [ -n "$slot_provider" ] && [ -n "$slot_model" ]; then
+            log_info "Adding AI model slot $i as fallback: ${slot_provider}/${slot_model}"
+            jq --arg model "${slot_provider}/${slot_model}" \
+               '.agents.defaults.model.fallbacks += [$model]' \
+               "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+        fi
+    done
+    
     local base_url
     base_url="$(config-get ai-base-url)"
     
