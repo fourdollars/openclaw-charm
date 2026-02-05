@@ -8,6 +8,99 @@ log_info "Starting OpenClaw as $ROLE"
 
 status-set maintenance "Starting OpenClaw $ROLE service"
 
+if [ "$(should_manage_config)" = "false" ]; then
+    log_info "Manual mode enabled - skipping automatic configuration"
+    
+    if [ "$ROLE" = "gateway" ]; then
+        log_info "Manual mode: Starting Gateway service (user manages configuration)"
+        
+        # Ensure environment file exists (required by systemd)
+        ensure_environment_file
+        
+        # Check if Gateway service is already running
+        if is_gateway_running; then
+            log_info "Gateway service already running in manual mode"
+            port="$(config-get gateway-port)"
+            bind="$(config-get gateway-bind)"
+            
+            if [ "$bind" = "loopback" ]; then
+                ip="127.0.0.1"
+            else
+                ip=$(unit-get private-address)
+            fi
+            
+            url="http://${ip}:${port}"
+            status-set active "Gateway: $url"
+            log_info "Manual mode: Gateway running at $url"
+            exit 0
+        fi
+        
+        # Start Gateway service in manual mode
+        if start_openclaw; then
+            port="$(config-get gateway-port)"
+            bind="$(config-get gateway-bind)"
+            
+            if [ "$bind" = "loopback" ]; then
+                ip="127.0.0.1"
+            else
+                ip=$(unit-get private-address)
+            fi
+            
+            url="http://${ip}:${port}"
+            status-set active "Gateway: $url"
+            log_info "Manual mode: Gateway started at $url"
+        else
+            status-set blocked "Failed to start Gateway service"
+            log_error "Manual mode: Failed to start Gateway"
+            exit 1
+        fi
+        exit 0
+    else
+        if ! generate_node_config; then
+            status-set blocked "Waiting for Gateway connection info from leader"
+            log_info "Node cannot start yet - waiting for Gateway info"
+            exit 0
+        fi
+        
+        if ! create_node_systemd_service; then
+            status-set blocked "Failed to create Node service"
+            exit 1
+        fi
+        
+        if is_node_running; then
+            log_info "Node service already running in manual mode"
+            gateway_unit=""
+            gateway_host=""
+            gateway_port=""
+            gateway_token=""
+            read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
+            
+            if [ -n "$gateway_unit" ] && [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
+                status-set active "Manual mode - Node connected to ${gateway_unit}"
+            else
+                status-set active "Manual mode - Node service started"
+            fi
+            exit 0
+        elif start_openclaw_node; then
+            gateway_unit=""
+            gateway_host=""
+            gateway_port=""
+            gateway_token=""
+            read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
+            
+            if [ -n "$gateway_unit" ] && [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
+                status-set active "Manual mode - Node connected to ${gateway_unit}"
+            else
+                status-set active "Manual mode - Node service started"
+            fi
+            exit 0
+        else
+            status-set blocked "Failed to start Node service"
+            exit 1
+        fi
+    fi
+fi
+
 if [ "$ROLE" = "gateway" ]; then
     if ! validate_config; then
         log_warn "Configuration validation failed - service will start but may not be functional"

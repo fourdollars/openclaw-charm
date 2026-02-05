@@ -7,7 +7,10 @@ source "$CHARM_DIR/hooks/common.sh"
 ROLE="$(get_unit_role)"
 
 if [ "$ROLE" = "gateway" ]; then
-    if run_systemctl_user is-active --quiet openclaw-gateway.service 2>/dev/null; then
+    # Check service state - accept both 'active' and 'activating' as valid
+    service_state=$(run_systemctl_user show openclaw-gateway.service -p ActiveState --value 2>/dev/null || echo "failed")
+    
+    if [ "$service_state" = "active" ] || [ "$service_state" = "activating" ]; then
         port="$(config-get gateway-port)"
         bind="$(config-get gateway-bind)"
         
@@ -21,7 +24,9 @@ if [ "$ROLE" = "gateway" ]; then
         
         # Auto-approve pending node devices
         if [ -x /usr/local/bin/openclaw-auto-approve ]; then
-            sudo -u ubuntu /usr/local/bin/openclaw-auto-approve >/dev/null 2>&1 || true
+            if sudo -u ubuntu /usr/local/bin/openclaw-auto-approve 2>&1 | grep -q "Successfully approved:"; then
+                log_info "Auto-approved pending node devices"
+            fi
         fi
         
         if validate_config; then

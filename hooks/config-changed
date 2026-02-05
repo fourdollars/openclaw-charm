@@ -9,6 +9,46 @@ log_info "Configuration changed for $ROLE"
 
 status-set maintenance "Updating $ROLE configuration"
 
+if [ "$(should_manage_config)" = "false" ]; then
+    log_info "Manual mode enabled - skipping configuration management"
+    
+    if [ "$ROLE" = "gateway" ]; then
+        status-set active "Manual mode - user manages Gateway configuration"
+    else
+        if ! generate_node_config; then
+            status-set blocked "Waiting for Gateway connection info from leader"
+            exit 0
+        fi
+        
+        if [ ! -f /home/ubuntu/.config/systemd/user/openclaw-node.service ]; then
+            log_info "Creating Node service in manual mode"
+            if ! create_node_systemd_service; then
+                status-set blocked "Failed to create Node service"
+                exit 1
+            fi
+        fi
+        
+        if run_systemctl_user is-active --quiet openclaw-node.service 2>/dev/null; then
+            if restart_openclaw_node; then
+                gateway_unit=""
+                gateway_host=""
+                gateway_port=""
+                gateway_token=""
+                read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
+                
+                if [ -n "$gateway_unit" ]; then
+                    status-set active "Manual mode - Node connected to ${gateway_unit}"
+                else
+                    status-set active "Manual mode - Node service restarted"
+                fi
+            fi
+        else
+            status-set active "Manual mode - user manages Node configuration"
+        fi
+    fi
+    exit 0
+fi
+
 ensure_chrome_installed
 
 if [ "$ROLE" = "gateway" ]; then

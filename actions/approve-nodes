@@ -9,6 +9,14 @@ if ! is_leader; then
     exit 1
 fi
 
+# Check if manual mode is enabled
+if [ "$(should_manage_config)" = "false" ]; then
+    if [ ! -f /home/ubuntu/.openclaw/openclaw.json ]; then
+        action-fail "Manual mode enabled but openclaw.json not found. Please create /home/ubuntu/.openclaw/openclaw.json with gateway configuration before running this action."
+        exit 1
+    fi
+fi
+
 gateway_host=$(unit-get private-address)
 gateway_port=$(config-get gateway-port)
 gateway_url="ws://${gateway_host}:${gateway_port}"

@@ -29,6 +29,21 @@ run_systemctl_user() {
     systemctl --user --machine=ubuntu@ "$@"
 }
 
+# Check if charm should manage OpenClaw configuration
+# Returns: "true" if charm manages config (manual=false), "false" if user manages (manual=true)
+should_manage_config() {
+    local manual_mode
+    manual_mode="$(config-get manual)"
+    
+    if [ "$manual_mode" = "True" ]; then
+        log_debug "Manual mode enabled - charm will not manage configuration"
+        echo "false"
+    else
+        log_debug "Automatic mode - charm manages configuration"
+        echo "true"
+    fi
+}
+
 # Check if this unit is the leader
 is_leader() {
     local result
@@ -254,6 +269,11 @@ install_chrome() {
 }
 
 ensure_chrome_installed() {
+    if [ "$(should_manage_config)" = "false" ]; then
+        log_info "Manual mode enabled - skipping Chrome installation management"
+        return 0
+    fi
+    
     local enable_browser_tool
     enable_browser_tool="$(config-get enable-browser-tool)"
     
@@ -269,8 +289,41 @@ ensure_chrome_installed() {
     fi
 }
 
+# Ensure environment file exists (required by systemd service)
+ensure_environment_file() {
+    local env_file="/home/ubuntu/.openclaw/environment"
+    local gateway_port gateway_bind
+    
+    gateway_port="$(config-get gateway-port)"
+    gateway_bind="$(config-get gateway-bind)"
+    
+    # Create .openclaw directory if it doesn't exist
+    mkdir -p /home/ubuntu/.openclaw
+    
+    # Create environment file
+    cat > "$env_file" <<EOF
+# OpenClaw Environment Variables
+NODE_ENV=production
+NODE_VERSION=$(config-get node-version)
+OPENCLAW_GATEWAY_PORT=${gateway_port}
+OPENCLAW_GATEWAY_BIND=${gateway_bind}
+EOF
+    
+    chown ubuntu:ubuntu "$env_file"
+    chmod 600 "$env_file"
+    log_debug "Environment file created at $env_file"
+}
+
 # Generate OpenClaw configuration
 generate_config() {
+    # Always ensure environment file exists (required by systemd)
+    ensure_environment_file
+    
+    if [ "$(should_manage_config)" = "false" ]; then
+        log_info "Manual mode enabled - skipping OpenClaw configuration generation"
+        return 0
+    fi
+    
     local config_file="/home/ubuntu/.openclaw/openclaw.json"
     local temp_file="${config_file}.tmp"
     local ai_provider ai_model api_key
@@ -389,20 +442,9 @@ generate_config() {
     
     mv "$temp_file" "$config_file"
 
-    # Set environment variables for API keys
-    local env_file="/home/ubuntu/.openclaw/environment"
-    cat > "$env_file" <<EOF
-# OpenClaw Environment Variables
-NODE_ENV=production
-NODE_VERSION=$(config-get node-version)
-OPENCLAW_GATEWAY_PORT=${gateway_port}
-OPENCLAW_GATEWAY_BIND=${gateway_bind}
-EOF
-
     # Set ownership and permissions (600 for config as it contains token)
-    chown ubuntu:ubuntu "$config_file" "$env_file"
+    chown ubuntu:ubuntu "$config_file"
     chmod 600 "$config_file"
-    chmod 600 "$env_file"
 
     # Create agent directory structure
     local agent_dir="/home/ubuntu/.openclaw/agents/main/agent"
@@ -465,9 +507,12 @@ EOF
 
 # Generate OpenClaw Node configuration
 generate_node_config() {
-    local config_file="/home/ubuntu/.openclaw/openclaw-node.json"
+    local config_file="/home/ubuntu/.openclaw/node.json"
     local gateway_host gateway_port gateway_token
     local relation_id leader_unit
+    local node_id display_name
+    
+    log_info "Generating OpenClaw Node configuration (peer relations work in both automatic and manual modes)"
     
     # Get the peer relation ID
     relation_id=$(relation-ids openclaw-cluster 2>/dev/null | head -1)
@@ -478,8 +523,6 @@ generate_node_config() {
     
     # Find the leader unit in the relation
     for unit in $(relation-list -r "$relation_id" 2>/dev/null); do
-        # Check if this unit is the leader by trying to get its gateway-host
-        # The leader will have published this data
         local test_host
         test_host="$(relation-get -r "$relation_id" gateway-host "$unit" 2>/dev/null || echo '')"
         if [ -n "$test_host" ]; then
@@ -502,18 +545,37 @@ generate_node_config() {
         return 1
     fi
     
-    log_info "Generating OpenClaw Node configuration (gateway: ${gateway_host}:${gateway_port})"
+    log_info "Configuring Node to connect to Gateway: ${gateway_host}:${gateway_port}"
+    
+    # Generate or reuse node ID
+    if [ -f "$config_file" ]; then
+        node_id=$(jq -r '.nodeId // empty' "$config_file" 2>/dev/null || echo "")
+    fi
+    
+    if [ -z "$node_id" ]; then
+        node_id=$(uuidgen)
+    fi
+    
+    display_name=$(hostname)
     
     mkdir -p /home/ubuntu/.openclaw
-    cat > "$config_file" <<EOF
-{
-  "gateway": {
-    "host": "${gateway_host}",
-    "port": ${gateway_port},
-    "token": "${gateway_token}"
-  }
-}
-EOF
+    
+    jq -n \
+        --arg version "1" \
+        --arg nodeId "$node_id" \
+        --arg displayName "$display_name" \
+        --arg host "$gateway_host" \
+        --argjson port "$gateway_port" \
+        '{
+            version: ($version | tonumber),
+            nodeId: $nodeId,
+            displayName: $displayName,
+            gateway: {
+                host: $host,
+                port: $port,
+                tls: false
+            }
+        }' > "$config_file"
     
     chown ubuntu:ubuntu "$config_file"
     chmod 600 "$config_file"
@@ -589,30 +651,18 @@ EOF
 create_node_systemd_service() {
     local service_dir="/home/ubuntu/.config/systemd/user"
     local service_file="$service_dir/openclaw-node.service"
-    local gateway_unit gateway_host gateway_port gateway_token
     local exec_start
     
-    read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
-    
-    if [ -z "$gateway_host" ] || [ -z "$gateway_port" ]; then
-        log_error "Gateway connection info not available from leader"
-        return 1
-    fi
-    
-    if [ -z "$gateway_token" ]; then
-        log_warn "Gateway token not available - Node may fail to authenticate"
-    fi
-    
-    log_info "Creating OpenClaw Node systemd user service (connecting to ${gateway_host}:${gateway_port})"
+    log_info "Creating OpenClaw Node systemd user service"
     
     sudo -u ubuntu bash -l -c "mkdir -p $service_dir"
     
     if [ -d "/home/ubuntu/.nvm" ]; then
-        exec_start="/home/ubuntu/.nvm/nvm-exec openclaw node run --host ${gateway_host} --port ${gateway_port}"
+        exec_start="/home/ubuntu/.nvm/nvm-exec openclaw node run"
     elif [ -d "/home/ubuntu/.bun" ]; then
-        exec_start="/home/ubuntu/.bun/bin/bun run openclaw node run --host ${gateway_host} --port ${gateway_port}"
+        exec_start="/home/ubuntu/.bun/bin/bun run openclaw node run"
     else
-        exec_start="openclaw node run --host ${gateway_host} --port ${gateway_port}"
+        exec_start="openclaw node run"
     fi
     
     local systemd_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -637,7 +687,6 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=%h
 Environment=PATH=${systemd_path}
-Environment="OPENCLAW_GATEWAY_TOKEN=${gateway_token}"
 Environment="NODE_VERSION=$(config-get node-version)"
 ExecStart=$exec_start
 Restart=always
@@ -689,6 +738,7 @@ stop_openclaw() {
 
 restart_openclaw() {
     log_info "Restarting OpenClaw Gateway service"
+    run_systemctl_user daemon-reload
     run_systemctl_user restart openclaw-gateway.service
     
     sleep 5
@@ -728,6 +778,7 @@ stop_openclaw_node() {
 
 restart_openclaw_node() {
     log_info "Restarting OpenClaw Node service"
+    run_systemctl_user daemon-reload
     run_systemctl_user restart openclaw-node.service
     
     sleep 5
@@ -766,6 +817,11 @@ get_status() {
 
 # Validate configuration
 validate_config() {
+    if [ "$(should_manage_config)" = "false" ]; then
+        log_info "Manual mode enabled - skipping configuration validation"
+        return 0
+    fi
+    
     local errors=0
     
     local ai_provider
@@ -935,7 +991,7 @@ run_as_user() {
 # Check if this node is paired and connected to the gateway
 # Returns: 0 if paired and connected, 1 if not
 is_node_paired() {
-    local pid recent_errors
+    local pid recent_errors node_id
     
     pid=$(pgrep -u ubuntu -f "openclaw-node" | head -1)
     if [ -z "$pid" ]; then
@@ -945,11 +1001,20 @@ is_node_paired() {
     
     log_debug "Node process PID $pid is running"
     
-    recent_errors=$(sudo -u ubuntu bash -l -c "journalctl --user -u openclaw-node.service --since '5 seconds ago' --no-pager 2>/dev/null | grep -c 'pairing required\|connect failed\|ECONNREFUSED'" || echo "0")
+    # Check for recent connection errors - use grep -E and count lines properly
+    recent_errors=$(sudo -u ubuntu bash -l -c "journalctl --user -u openclaw-node.service --since '5 seconds ago' --no-pager 2>/dev/null" | grep -cE 'pairing required|connect failed|ECONNREFUSED' 2>/dev/null || echo "0")
+    # Ensure recent_errors is a single integer
+    recent_errors=$(echo "$recent_errors" | head -1 | tr -d '\n')
     
-    if [ "$recent_errors" -gt 0 ]; then
+    if [ -n "$recent_errors" ] && [ "$recent_errors" -gt 0 ] 2>/dev/null; then
         log_debug "Node has recent connection errors ($recent_errors errors in last 5s)"
         return 1
+    fi
+    
+    # Additional check: verify node is actually connected by checking for successful connection log
+    if sudo -u ubuntu bash -l -c "journalctl --user -u openclaw-node.service --since '30 seconds ago' --no-pager 2>/dev/null" | grep -qE 'node host connected|gateway.*connected'; then
+        log_debug "Node successfully connected to gateway"
+        return 0
     fi
     
     log_debug "Node process stable and connected (no errors in last 5s)"
