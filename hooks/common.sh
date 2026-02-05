@@ -342,6 +342,34 @@ generate_config() {
     
     log_info "Generating OpenClaw configuration using jq"
     
+    # Parse comma-separated models from ai-model
+    local primary_model fallback_models
+    if echo "$ai_model" | grep -q ','; then
+        # Multiple models provided
+        local first_model
+        first_model=$(echo "$ai_model" | cut -d',' -f1 | xargs)
+        # Check if first model has provider prefix
+        if echo "$first_model" | grep -q '/'; then
+            primary_model="$first_model"
+        else
+            primary_model="${ai_provider}/${first_model}"
+        fi
+        
+        # Get remaining models
+        fallback_models=$(echo "$ai_model" | cut -d',' -f2-)
+        log_info "Primary model: ${primary_model}"
+        log_info "Additional models from ai-model: $(echo "$fallback_models" | tr ',' ' ')"
+    else
+        # Single model provided
+        if echo "$ai_model" | grep -q '/'; then
+            primary_model="$ai_model"
+        else
+            primary_model="${ai_provider}/${ai_model}"
+        fi
+        fallback_models=""
+        log_info "Primary model: ${primary_model}"
+    fi
+    
     local gateway_token
     if [ -f "$config_file" ]; then
         gateway_token=$(jq -r '.gateway.auth.token // empty' "$config_file" 2>/dev/null || echo "")
@@ -359,7 +387,7 @@ generate_config() {
         --arg token "$gateway_token" \
         --arg bind "$gateway_bind" \
         --argjson port "$gateway_port" \
-        --arg model "${ai_provider}/${ai_model}" \
+        --arg model "${primary_model}" \
         --arg log_level "$log_level" \
         '{
             gateway: {
@@ -383,6 +411,25 @@ generate_config() {
             },
             channels: {}
         }' > "$temp_file"
+    
+    # Add remaining models from ai-model as fallbacks
+    if [ -n "$fallback_models" ]; then
+        echo "$fallback_models" | tr ',' '\n' | while read -r model; do
+            model=$(echo "$model" | xargs)
+            if [ -n "$model" ]; then
+                # Check if model has provider prefix
+                if echo "$model" | grep -q '/'; then
+                    full_model="$model"
+                else
+                    full_model="${ai_provider}/${model}"
+                fi
+                log_info "Adding fallback model from ai-model: ${full_model}"
+                jq --arg model "${full_model}" \
+                   '.agents.defaults.model.fallbacks += [$model]' \
+                   "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+            fi
+        done
+    fi
     
     local telegram_bot_token discord_bot_token slack_bot_token slack_app_token
     local line_channel_access_token line_channel_secret
@@ -426,12 +473,43 @@ generate_config() {
         slot_model="$(config-get "ai${i}-model")"
         
         if [ -n "$slot_provider" ] && [ -n "$slot_model" ]; then
-            log_info "Adding AI model slot $i as fallback: ${slot_provider}/${slot_model}"
-            jq --arg model "${slot_provider}/${slot_model}" \
-               '.agents.defaults.model.fallbacks += [$model]' \
-               "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+            # Parse comma-separated models from slot
+            if echo "$slot_model" | grep -q ','; then
+                # Multiple models in slot
+                echo "$slot_model" | tr ',' '\n' | while read -r model; do
+                    model=$(echo "$model" | xargs)
+                    if [ -n "$model" ]; then
+                        # Check if model has provider prefix
+                        if echo "$model" | grep -q '/'; then
+                            full_model="$model"
+                        else
+                            full_model="${slot_provider}/${model}"
+                        fi
+                        log_info "Adding AI model from slot $i as fallback: ${full_model}"
+                        jq --arg model "${full_model}" \
+                           '.agents.defaults.model.fallbacks += [$model]' \
+                           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+                    fi
+                done
+            else
+                # Single model in slot
+                if echo "$slot_model" | grep -q '/'; then
+                    full_model="$slot_model"
+                else
+                    full_model="${slot_provider}/${slot_model}"
+                fi
+                log_info "Adding AI model slot $i as fallback: ${full_model}"
+                jq --arg model "${full_model}" \
+                   '.agents.defaults.model.fallbacks += [$model]' \
+                   "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+            fi
         fi
     done
+    
+    # Deduplicate fallback models (remove duplicates while preserving order)
+    log_info "Deduplicating fallback models"
+    jq '.agents.defaults.model.fallbacks |= (reduce .[] as $item ([]; if any(.[]; . == $item) then . else . + [$item] end))' \
+       "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     
     local base_url
     base_url="$(config-get ai-base-url)"

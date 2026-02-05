@@ -217,9 +217,79 @@ juju config openclaw \
   ai-base-url="http://localhost:5000/v1"
 ```
 
+### Comma-Separated Models for Fallback
+
+Both `ai-model` and `ai[0-9]-model` configurations support comma-separated model lists. The first model becomes the primary, and remaining models are added as fallbacks.
+
+**Multiple Models from Same Provider:**
+
+```bash
+juju config openclaw \
+  ai-provider="openai" \
+  ai-api-key="sk-xxx" \
+  ai-model="gpt-4,gpt-3.5-turbo"
+```
+
+This sets `gpt-4` as primary with `gpt-3.5-turbo` as fallback.
+
+**Cross-Provider Fallbacks (using provider/ prefix):**
+
+```bash
+juju config openclaw \
+  ai-provider="openai" \
+  ai-api-key="sk-xxx" \
+  ai-model="gpt-4,anthropic/claude-sonnet-4,google/gemini-2.5-pro"
+```
+
+This enables intelligent fallback across providers:
+- Primary: `openai/gpt-4`
+- Fallback 1: `anthropic/claude-sonnet-4` 
+- Fallback 2: `google/gemini-2.5-pro`
+
+**Note:** Models without `provider/` prefix will use the configured `ai-provider`. When using `provider/` prefixes in comma-separated lists, ensure corresponding auth profiles are configured via additional AI slots (each provider needs its own slot with API key).
+
+**GitHub Copilot as Model Aggregator:**
+
+GitHub Copilot Models API acts as an aggregator, routing requests to multiple backend providers (Anthropic, Google, OpenAI, etc.) through a single GitHub API key:
+
+```bash
+juju config openclaw \
+  ai-provider="github-copilot" \
+  ai-api-key="ghp_your_github_token" \
+  ai-model="gemini-3-flash-preview,gemini-3-pro-preview,gemini-2.5-pro,claude-haiku-4.5,claude-sonnet-4.5,claude-sonnet-4"
+```
+
+This configures:
+- Primary: `github-copilot/gemini-3-flash-preview`
+- Fallbacks: All other models via `github-copilot/*` provider
+
+GitHub Copilot handles routing to the appropriate backend provider (Google for Gemini models, Anthropic for Claude models).
+
 ### Multi-AI Model Support
 
 OpenClaw Charm supports configuring up to 11 AI models simultaneously (1 primary + 10 additional slots). This enables model switching, fallback, and specialized model usage for different tasks.
+
+**Using Multiple Providers - Requires Multiple Slots:**
+
+To use models from different AI providers (e.g., both Google Gemini and Anthropic Claude), configure each provider in a separate slot with its own API key:
+
+```bash
+# Slot 0: Google models
+juju config openclaw \
+  ai-provider="google" \
+  ai-api-key="GOOGLE_API_KEY" \
+  ai-model="gemini-3-flash-preview,gemini-3-pro-preview,gemini-2.5-pro"
+
+# Slot 1: Anthropic models
+juju config openclaw \
+  ai0-provider="anthropic" \
+  ai0-api-key="ANTHROPIC_API_KEY" \
+  ai0-model="claude-haiku-4.5,claude-sonnet-4.5,claude-sonnet-4"
+```
+
+Result:
+- Primary: `google/gemini-3-flash-preview`
+- Fallbacks: `google/gemini-3-pro-preview`, `google/gemini-2.5-pro`, `anthropic/claude-haiku-4.5`, `anthropic/claude-sonnet-4.5`, `anthropic/claude-sonnet-4`
 
 **Configure Additional AI Models:**
 
@@ -245,6 +315,12 @@ juju config openclaw \
   ai2-provider="anthropic" \
   ai2-model="claude-sonnet-4" \
   ai2-api-key="sk-ant-yyy"
+
+# Slots also support comma-separated models
+juju config openclaw \
+  ai3-provider="openai" \
+  ai3-model="gpt-4,gpt-3.5-turbo,gpt-4o-mini" \
+  ai3-api-key="sk-xxx"
 ```
 
 **All AI Slots:**
