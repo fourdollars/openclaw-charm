@@ -1,8 +1,26 @@
 #!/bin/bash
 # OpenClaw Auto-Approve Helper Script
-# Automatically approves pending node devices on the gateway
+# Automatically approves pending node devices on the gateway with retry logic
 
 set -e
+
+# Configuration
+MAX_RETRIES=3
+RETRY_DELAY=2  # seconds between retries
+LOG_PREFIX="[openclaw-auto-approve]"
+
+# Logging functions
+log_info() {
+    echo "$LOG_PREFIX INFO: $*"
+}
+
+log_warn() {
+    echo "$LOG_PREFIX WARN: $*" >&2
+}
+
+log_error() {
+    echo "$LOG_PREFIX ERROR: $*" >&2
+}
 
 # Setup environment
 export HOME="/home/ubuntu"
@@ -14,7 +32,7 @@ if [ -s "$NVM_DIR/nvm.sh" ]; then
     . "$NVM_DIR/nvm.sh"
     nvm use "$NODE_VERSION" >/dev/null 2>&1
 else
-    echo "ERROR: nvm not found at $NVM_DIR/nvm.sh" >&2
+    log_error "nvm not found at $NVM_DIR/nvm.sh"
     exit 1
 fi
 
@@ -22,14 +40,14 @@ fi
 CONFIG="$HOME/.openclaw/openclaw.json"
 
 if [ ! -f "$CONFIG" ]; then
-    echo "ERROR: OpenClaw config not found at $CONFIG" >&2
+    log_error "OpenClaw config not found at $CONFIG"
     exit 1
 fi
 
 # Extract gateway configuration
 GATEWAY_TOKEN=$(jq -r '.gateway.auth.token // empty' "$CONFIG" 2>/dev/null)
 if [ -z "$GATEWAY_TOKEN" ]; then
-    echo "ERROR: Gateway token not found in config" >&2
+    log_error "Gateway token not found in config"
     exit 1
 fi
 
@@ -37,28 +55,94 @@ GATEWAY_HOST=$(hostname -I | awk '{print $1}')
 GATEWAY_PORT=$(jq -r '.gateway.port // 18789' "$CONFIG" 2>/dev/null)
 GATEWAY_URL="ws://${GATEWAY_HOST}:${GATEWAY_PORT}"
 
+log_info "Checking for pending node devices at $GATEWAY_URL"
+
+# Function to get pending node devices with retry
+get_pending_devices() {
+    local attempt=1
+    local result
+    
+    while [ $attempt -le $MAX_RETRIES ]; do
+        result=$(openclaw devices list --url "$GATEWAY_URL" --token "$GATEWAY_TOKEN" --json 2>/dev/null | \
+                 jq -r '.pending[]? | select(.role=="node") | .requestId' 2>/dev/null || echo "")
+        
+        if [ $? -eq 0 ]; then
+            echo "$result"
+            return 0
+        fi
+        
+        if [ $attempt -lt $MAX_RETRIES ]; then
+            log_warn "Failed to retrieve device list (attempt $attempt/$MAX_RETRIES), retrying in ${RETRY_DELAY}s..."
+            sleep $RETRY_DELAY
+        fi
+        attempt=$((attempt + 1))
+    done
+    
+    log_error "Failed to retrieve device list after $MAX_RETRIES attempts"
+    return 1
+}
+
+# Function to approve a device with retry
+approve_device() {
+    local request_id="$1"
+    local device_name="$2"
+    local attempt=1
+    
+    while [ $attempt -le $MAX_RETRIES ]; do
+        log_info "Approving device: $device_name (ID: $request_id) - attempt $attempt/$MAX_RETRIES"
+        
+        if openclaw devices approve "$request_id" --url "$GATEWAY_URL" --token "$GATEWAY_TOKEN" 2>/dev/null; then
+            log_info "Successfully approved: $device_name (ID: $request_id)"
+            return 0
+        fi
+        
+        if [ $attempt -lt $MAX_RETRIES ]; then
+            log_warn "Approval failed for $device_name, retrying in ${RETRY_DELAY}s..."
+            sleep $RETRY_DELAY
+        fi
+        attempt=$((attempt + 1))
+    done
+    
+    log_error "Failed to approve $device_name after $MAX_RETRIES attempts"
+    return 1
+}
+
 # Get pending node devices
-PENDING=$(openclaw devices list --url "$GATEWAY_URL" --token "$GATEWAY_TOKEN" --json 2>/dev/null | \
-          jq -r '.pending[]? | select(.role=="node") | .requestId' 2>/dev/null || echo "")
+PENDING=$(get_pending_devices)
 
 if [ -z "$PENDING" ]; then
-    echo "No pending node devices to approve"
+    log_info "No pending node devices to approve"
     exit 0
 fi
 
+# Count pending devices
+PENDING_COUNT=$(echo "$PENDING" | wc -l)
+log_info "Found $PENDING_COUNT pending node device(s)"
+
+# Get detailed device info for better logging
+PENDING_DETAILS=$(openclaw devices list --url "$GATEWAY_URL" --token "$GATEWAY_TOKEN" --json 2>/dev/null | \
+                  jq -r '.pending[]? | select(.role=="node") | "\(.requestId)|\(.displayName // "unknown")"' 2>/dev/null || echo "")
+
 # Approve each pending device
 APPROVED=0
-while IFS= read -r request_id; do
+FAILED=0
+
+while IFS='|' read -r request_id device_name; do
     if [ -n "$request_id" ]; then
-        echo "Approving node device: $request_id"
-        if openclaw devices approve "$request_id" --url "$GATEWAY_URL" --token "$GATEWAY_TOKEN" 2>/dev/null; then
-            echo "Successfully approved: $request_id"
+        if approve_device "$request_id" "$device_name"; then
             APPROVED=$((APPROVED + 1))
         else
-            echo "Failed to approve: $request_id" >&2
+            FAILED=$((FAILED + 1))
         fi
     fi
-done <<< "$PENDING"
+done <<< "$PENDING_DETAILS"
 
-echo "Approved $APPROVED node device(s)"
+# Summary
+log_info "Auto-approval complete: $APPROVED approved, $FAILED failed out of $PENDING_COUNT pending"
+
+if [ $FAILED -gt 0 ]; then
+    log_warn "Some devices failed to approve - manual intervention may be required"
+    exit 1
+fi
+
 exit 0

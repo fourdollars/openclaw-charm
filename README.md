@@ -407,8 +407,9 @@ juju config openclaw enable-browser-tool=true
 OpenClaw charm supports horizontal scaling with automatic Gateway-Node architecture:
 
 ```bash
-# Deploy with 3 units
+# Deploy with 3 units (IMPORTANT: set gateway-bind=lan for multi-unit)
 juju deploy openclaw --channel edge -n 3 \
+  --config gateway-bind=lan \
   --config ai-provider="anthropic" \
   --config ai-api-key="sk-ant-xxx" \
   --config ai-model="claude-opus-4-5"
@@ -416,7 +417,8 @@ juju deploy openclaw --channel edge -n 3 \
 # Wait for deployment
 juju status --watch 1s
 
-# Approve pending Nodes
+# Nodes will auto-pair with Gateway
+# Manual approval if needed:
 juju run openclaw/leader approve-nodes
 
 # Scale up to 5 units
@@ -426,6 +428,22 @@ juju run openclaw/leader approve-nodes
 # Scale down to 2 units
 juju remove-unit openclaw/2
 ```
+
+**⚠️ CRITICAL: Multi-Unit Deployment Requirements**
+
+For multi-unit deployments to work properly, you **MUST** set `gateway-bind=lan`:
+
+```bash
+juju config openclaw gateway-bind=lan
+```
+
+**Why this is required:**
+- Default `gateway-bind=loopback` binds Gateway to `127.0.0.1` (localhost only)
+- Node units on different machines cannot connect to `127.0.0.1` 
+- Setting `gateway-bind=lan` binds Gateway to all network interfaces
+- This allows Nodes to connect via the Gateway's private IP address
+
+The charm will automatically **block deployment** if you attempt multi-unit with `gateway-bind=loopback`.
 
 **Status example:**
 
@@ -444,12 +462,21 @@ openclaw/2   active    Node - connected to openclaw/0
 - Gateway handles all messaging channels and AI processing
 - Nodes provide additional compute capacity and system access
 
+**Authentication Flow:**
+1. Gateway generates auth token during onboarding
+2. Token shared via Juju peer relation (`openclaw-cluster`)
+3. Nodes receive token and inject into systemd service via drop-in file
+4. Nodes connect with gateway token → Gateway validates
+5. Device pairing created → Auto-approved by Gateway
+6. Node receives device token → Subsequent connections use device token
+
 **Benefits:**
 
 - **Horizontal scaling**: Add more nodes for increased capacity
 - **Load distribution**: Nodes can handle system.run commands across multiple machines
 - **Distributed access**: Nodes provide system access across different machines
 - **Automatic coordination**: Units discover and connect through peer relations
+- **High availability**: Add redundancy across multiple machines
 
 ### Multiple Instances
 
@@ -525,11 +552,15 @@ juju status openclaw --relations
 # SSH into unit
 juju ssh openclaw/0
 
-# Check systemd service
-juju ssh openclaw/0 'systemctl status openclaw.service'
+# Check systemd service (Gateway)
+juju ssh openclaw/0 'systemctl --user status openclaw-gateway.service'
+
+# Check systemd service (Node)
+juju ssh openclaw/1 'systemctl --user status openclaw-node.service'
 
 # View service logs
-juju ssh openclaw/0 'journalctl -u openclaw.service -f'
+juju ssh openclaw/0 'journalctl --user -u openclaw-gateway.service -f'
+juju ssh openclaw/1 'journalctl --user -u openclaw-node.service -f'
 ```
 
 ### Common Issues
@@ -549,8 +580,131 @@ juju ssh openclaw/0 'journalctl -u openclaw.service -f'
 **Messaging channels not working:**
 
 - Verify channel tokens are correct
-- Check channel configuration: `juju ssh openclaw/0 'cat /home/openclaw/.openclaw/openclaw.json'`
+- Check channel configuration: `juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json'`
 - Review OpenClaw logs for connection errors
+
+### Multi-Unit Deployment Issues
+
+**Issue: Node shows "unauthorized: gateway token missing"**
+
+**Symptoms:**
+```
+juju ssh openclaw/1 'journalctl --user -u openclaw-node.service --no-pager | tail -20'
+# Shows: "unauthorized: gateway token missing (provide gateway auth token)"
+```
+
+**Causes:**
+- Systemd drop-in file not created or token not in peer relation
+- Node started before Gateway published token to relation
+
+**Solutions:**
+```bash
+# Check if token drop-in exists
+juju ssh openclaw/1 'cat /home/ubuntu/.config/systemd/user/openclaw-node.service.d/gateway-token.conf'
+
+# Check peer relation data
+juju ssh openclaw/0 'relation-get -r $(relation-ids openclaw-cluster | head -1) - openclaw/0'
+
+# Trigger config-changed to recreate drop-in
+juju config openclaw log-level=info
+
+# Manual restart if needed
+juju ssh openclaw/1 'systemctl --user restart openclaw-node.service'
+```
+
+**Issue: Node shows "Waiting for device pairing approval"**
+
+**Symptoms:**
+```
+juju status openclaw/1
+# Shows: waiting - "Waiting for device pairing approval"
+```
+
+**Causes:**
+- Auto-approve hasn't run yet or failed
+- Device is in pending list but not approved
+
+**Solutions:**
+```bash
+# Check pending devices on Gateway
+juju ssh openclaw/0 'sudo su - ubuntu -c ". ~/.nvm/nvm.sh && openclaw devices list"'
+
+# Manually approve all pending nodes
+juju run openclaw/leader approve-nodes
+
+# Check auto-approve script logs
+juju ssh openclaw/0 'sudo journalctl --user -u openclaw-gateway.service --no-pager | grep auto-approve'
+```
+
+**Issue: Node shows "Cannot reach Gateway"**
+
+**Symptoms:**
+```
+juju status openclaw/1
+# Shows: blocked - "Cannot reach Gateway at 10.x.x.x:18789"
+```
+
+**Causes:**
+- Gateway bound to loopback instead of LAN
+- Network connectivity issue between units
+- Firewall blocking Gateway port
+
+**Solutions:**
+```bash
+# Check Gateway binding
+juju config openclaw gateway-bind
+# Should be "lan" for multi-unit, not "loopback"
+
+# Fix binding
+juju config openclaw gateway-bind=lan
+
+# Verify Gateway is listening on network interface
+juju ssh openclaw/0 'ss -tulpn | grep 18789'
+# Should show: 0.0.0.0:18789 (not 127.0.0.1:18789)
+
+# Test connectivity from Node
+juju ssh openclaw/1 'timeout 3 bash -c "echo > /dev/tcp/$(relation-get -r $(relation-ids openclaw-cluster | head -1) gateway-host openclaw/0)/18789" && echo "Gateway reachable" || echo "Gateway unreachable"'
+```
+
+**Issue: Multi-unit deployment blocked at start**
+
+**Symptoms:**
+```
+juju status openclaw/0
+# Shows: blocked - "Multi-unit deployment requires gateway-bind=lan (currently: loopback)"
+```
+
+**Cause:**
+- Attempting multi-unit deployment with `gateway-bind=loopback`
+
+**Solution:**
+```bash
+# Set gateway-bind to lan
+juju config openclaw gateway-bind=lan
+
+# Deployment will proceed automatically
+```
+
+**Issue: Node configuration shows wrong display name**
+
+**Symptoms:**
+- Device list shows "ip-10-x-x-x" instead of "openclaw/1"
+
+**Cause:**
+- Using old charm version without Juju unit name support
+
+**Solution:**
+```bash
+# Check node.json
+juju ssh openclaw/1 'cat /home/ubuntu/.openclaw/node.json'
+# Should show: "displayName": "openclaw/1"
+
+# If not, upgrade charm
+juju refresh openclaw --channel edge
+
+# Or regenerate config
+juju config openclaw log-level=debug  # Triggers config-changed
+```
 
 ### Debug Mode
 
@@ -558,8 +712,40 @@ juju ssh openclaw/0 'journalctl -u openclaw.service -f'
 # Enable debug logging
 juju config openclaw log-level="debug"
 
-# View detailed logs
-juju ssh openclaw/0 'journalctl -u openclaw.service -n 500'
+# View detailed logs (Gateway)
+juju ssh openclaw/0 'journalctl --user -u openclaw-gateway.service -n 500'
+
+# View detailed logs (Node)
+juju ssh openclaw/1 'journalctl --user -u openclaw-node.service -n 500'
+
+# Check all relation data
+juju run openclaw/0 relation-get -r $(relation-ids openclaw-cluster | head -1)
+```
+
+### Verification Commands for Multi-Unit Deployments
+
+```bash
+# 1. Check deployment status
+juju status openclaw
+
+# 2. Verify Node config (no token in file - by design)
+juju ssh openclaw/1 'cat /home/ubuntu/.openclaw/node.json | jq .'
+
+# 3. Verify systemd drop-in (token should be present)
+juju ssh openclaw/1 'cat /home/ubuntu/.config/systemd/user/openclaw-node.service.d/gateway-token.conf'
+
+# 4. Check Gateway devices list
+juju ssh openclaw/0 'sudo su - ubuntu -c ". ~/.nvm/nvm.sh && openclaw devices list"'
+
+# 5. Check Node connection logs
+juju ssh openclaw/1 'journalctl --user -u openclaw-node.service --since "5 minutes ago" --no-pager | tail -30'
+
+# 6. Verify Gateway listening on network interface
+juju ssh openclaw/0 'ss -tulpn | grep 18789'
+# Expected: 0.0.0.0:18789 (not 127.0.0.1:18789)
+
+# 7. Test Gateway connectivity from Node
+juju ssh openclaw/1 'nc -zv $(relation-get -r $(relation-ids openclaw-cluster | head -1) gateway-host openclaw/0) 18789'
 ```
 
 ---

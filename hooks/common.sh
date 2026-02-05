@@ -1068,3 +1068,22 @@ is_node_paired() {
     log_debug "Node process stable and connected (no errors in last 5s)"
     return 0
 }
+
+check_gateway_connection() {
+    local gateway_host gateway_port
+    
+    read -r _ gateway_host gateway_port _ <<< "$(get_gateway_info)"
+    
+    if [ -z "$gateway_host" ] || [ -z "$gateway_port" ]; then
+        log_debug "Gateway info not available"
+        return 1
+    fi
+    
+    if timeout 3 bash -c "echo > /dev/tcp/$gateway_host/$gateway_port" 2>/dev/null; then
+        log_debug "Gateway reachable at $gateway_host:$gateway_port"
+        return 0
+    else
+        log_warn "Cannot reach Gateway at $gateway_host:$gateway_port"
+        return 1
+    fi
+}

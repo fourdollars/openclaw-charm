@@ -38,14 +38,16 @@ if [ "$ROLE" = "gateway" ]; then
         status-set blocked "Gateway service not running"
     fi
 else
-    # Check if service is active or in auto-restart state (which is normal when awaiting pairing)
     service_state=$(run_systemctl_user show openclaw-node.service -p ActiveState -p SubState --value 2>/dev/null | tr '\n' ',' || echo "failed,")
     
     if [[ "$service_state" == *"active"* ]] || [[ "$service_state" == *"auto-restart"* ]]; then
         read -r gateway_unit gateway_host gateway_port _ <<< "$(get_gateway_info)"
         
-        # Check if node is paired with gateway
-        if is_node_paired; then
+        if [ -z "$gateway_host" ] || [ -z "$gateway_port" ]; then
+            status-set blocked "Waiting for Gateway connection info"
+        elif ! check_gateway_connection; then
+            status-set blocked "Cannot reach Gateway at ${gateway_host}:${gateway_port}"
+        elif is_node_paired; then
             if [ -n "$gateway_unit" ]; then
                 status-set active "Node - connected to ${gateway_unit}"
             elif [ -n "$gateway_host" ] && [ -n "$gateway_port" ]; then
@@ -54,7 +56,6 @@ else
                 status-set blocked "Waiting for Gateway connection info"
             fi
         else
-            # Node is running but not yet paired
             status-set waiting "Waiting for device pairing approval"
         fi
     else
