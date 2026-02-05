@@ -82,17 +82,17 @@ juju run openclaw/0 get-gateway-token format=url
 
 ### Approve Nodes
 
-When deploying multiple units, Node devices require approval before they can connect to the Gateway. Use this action to approve all pending Nodes:
+When deploying multiple units, Node devices are **automatically approved** via the peer relation within ~15 seconds of connecting to the Gateway. This action is provided for manual intervention if needed (e.g., troubleshooting or forcing re-approval):
 
 ```bash
-# Approve all pending Node devices
+# Manually approve all pending Node devices (usually not needed)
 juju run openclaw/leader approve-nodes
 
 # Check which devices are pending
 juju ssh openclaw/0 'openclaw devices list'
 ```
 
-**Note**: This action only needs to be run on the Gateway unit (leader). New Nodes will automatically appear in the pending list and can be approved at any time.
+**Note**: In normal operation, nodes automatically pair with the Gateway through the `openclaw-cluster` peer relation. This action is only needed if automatic approval fails or for administrative purposes.
 
 ### Backup Data
 
@@ -417,13 +417,11 @@ juju deploy openclaw --channel edge -n 3 \
 # Wait for deployment
 juju status --watch 1s
 
-# Nodes will auto-pair with Gateway
-# Manual approval if needed:
-juju run openclaw/leader approve-nodes
+# Nodes will automatically pair with Gateway via peer relation
+# (Auto-approval happens within ~15 seconds of node connection)
 
 # Scale up to 5 units
 juju add-unit openclaw -n 2
-juju run openclaw/leader approve-nodes
 
 # Scale down to 2 units
 juju remove-unit openclaw/2
@@ -621,8 +619,9 @@ juju status openclaw/1
 ```
 
 **Causes:**
-- Auto-approve hasn't run yet or failed
-- Device is in pending list but not approved
+- Auto-approve hasn't completed yet (normal delay: ~15 seconds after node connects)
+- Auto-approve script failed to run
+- Device is in pending list but approval failed
 
 **Solutions:**
 ```bash

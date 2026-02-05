@@ -886,12 +886,11 @@ juju deploy openclaw --channel edge -n 3
 # Wait for units to be ready
 juju status --watch 1s
 
-# Approve pending Nodes (new in charm v19+)
-juju run openclaw/leader approve-nodes
+# Nodes automatically pair with Gateway via peer relation
+# (no manual approval needed - happens within ~15 seconds)
 
 # Scale up
 juju add-unit openclaw -n 2
-juju run openclaw/leader approve-nodes
 
 # Scale down
 juju remove-unit openclaw/4
@@ -911,7 +910,7 @@ openclaw/2   active    Node - connected to openclaw/0
 - **Leader unit**: Runs OpenClaw Gateway (handles messaging, AI processing, dashboard)
 - **Non-leader units**: Run OpenClaw Node (provide compute capacity, system access)
 - **Automatic coordination**: Units discover each other via peer relations
-- **Device pairing**: Nodes require approval before connecting (use `approve-nodes` action)
+- **Device pairing**: Nodes automatically pair with Gateway within ~15 seconds via the `openclaw-cluster` peer relation
 
 **Benefits:**
 
@@ -941,18 +940,20 @@ juju ssh openclaw/1 'journalctl -u openclaw-node.service -n 50'
 
 **Troubleshooting Nodes:**
 
-If Nodes show as "pending" and not connected:
+If Nodes show as "waiting" for more than 15-20 seconds, automatic approval may have failed. Check status and manually approve if needed:
 
 ```bash
 # List pending devices
 juju ssh openclaw/0 'openclaw devices list'
 
-# Approve all pending Nodes
+# Manually approve all pending Nodes (if auto-approval failed)
 juju run openclaw/leader approve-nodes
 
 # Or manually approve a specific device
 juju ssh openclaw/0 'openclaw devices approve <request-id>'
 ```
+
+**Note**: Under normal operation, nodes should automatically pair within ~15 seconds of connecting to the Gateway via the peer relation.
 
 ---
 

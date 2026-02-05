@@ -9,6 +9,12 @@ log_info "Peer relation changed - role: $ROLE"
 
 if [ "$ROLE" = "gateway" ]; then
     # Gateway: Auto-approve pending node devices from peer relation
+    log_info "Gateway: Waiting for nodes to connect before auto-approval"
+    
+    # Wait for nodes to establish connection and create device pairing requests
+    # Node service starts and connects within ~10 seconds (see node startup in this hook)
+    sleep 15
+    
     log_info "Gateway: Running auto-approval for pending node devices"
     
     if [ -x /usr/local/bin/openclaw-auto-approve ]; then
