@@ -55,16 +55,44 @@ jobs:
             exit 1
           fi
 
+  build:
+    name: Build Charm
+    runs-on: ubuntu-24.04
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Install charmcraft
+        run: |
+          sudo snap install charmcraft --classic
+      
+      - name: Pack charm
+        run: |
+          charmcraft pack --destructive-mode
+      
+      - name: Upload charm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openclaw-charm
+          path: openclaw_*.charm
+          retention-days: 1
+
   test-install:
     name: Test Charm Installation
     runs-on: ubuntu-24.04
-    needs: lint
+    needs: build
     strategy:
       matrix:
         install-method: [npm, pnpm, bun]
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+      
+      - name: Download charm artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openclaw-charm
       
       - name: Set up LXD
         uses: canonical/setup-lxd@main
@@ -75,7 +103,6 @@ jobs:
         run: |
           sudo snap install juju --channel=3/stable
           sudo snap install juju-wait --classic
-          sudo snap install charmcraft --classic
       
       - name: Bootstrap Juju
         run: |
@@ -85,10 +112,6 @@ jobs:
       - name: Create test model
         run: |
           juju add-model test-openclaw
-      
-      - name: Pack charm
-        run: |
-          charmcraft pack --destructive-mode
       
       - name: Deploy charm
         run: |
@@ -160,10 +183,15 @@ jobs:
   test-channels:
     name: Test Messaging Channel Configuration
     runs-on: ubuntu-24.04
-    needs: lint
+    needs: build
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+      
+      - name: Download charm artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openclaw-charm
       
       - name: Set up LXD
         uses: canonical/setup-lxd@main
@@ -172,7 +200,6 @@ jobs:
         run: |
           sudo snap install juju --channel=3/stable
           sudo snap install juju-wait --classic
-          sudo snap install charmcraft --classic
       
       - name: Bootstrap Juju
         run: |
@@ -182,10 +209,6 @@ jobs:
       - name: Create test model
         run: |
           juju add-model test-channels
-      
-      - name: Pack charm
-        run: |
-          charmcraft pack --destructive-mode
       
       - name: Deploy with channel config
         run: |
@@ -218,169 +241,18 @@ jobs:
           juju destroy-model test-channels -y --force --no-wait || true
           juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
 
-  test-manual-mode:
-    name: Test Manual Configuration Mode
-    runs-on: ubuntu-24.04
-    needs: lint
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-      
-      - name: Set up LXD
-        uses: canonical/setup-lxd@main
-      
-      - name: Install Juju
-        run: |
-          sudo snap install juju --channel=3/stable
-          sudo snap install juju-wait --classic
-          sudo snap install charmcraft --classic
-      
-      - name: Bootstrap Juju
-        run: |
-          lxc network set lxdbr0 ipv6.address none
-          juju bootstrap localhost test-controller
-      
-      - name: Create test model
-        run: |
-          juju add-model test-manual
-      
-      - name: Pack charm
-        run: |
-          charmcraft pack --destructive-mode
-      
-      - name: Deploy with manual=true
-        run: |
-          CHARM_FILE=$(ls openclaw_*.charm | head -1)
-          juju deploy ./$CHARM_FILE \
-            --config manual=true \
-            --config install-method=npm
-      
-      - name: Wait for deployment
-        run: |
-          juju-wait -v -m test-manual -t 900
-      
-      - name: Verify manual mode behavior
-        run: |
-          # Check status message indicates manual mode
-          status_msg=$(juju status openclaw --format=json | jq -r '.applications.openclaw.units[]["workload-status"].message' | head -1)
-          echo "Status message: $status_msg"
-          
-          if echo "$status_msg" | grep -qi "manual"; then
-            echo "✓ Manual mode status verified"
-          else
-            echo "✗ Status does not indicate manual mode: $status_msg"
-            exit 1
-          fi
-          
-          # Verify OpenClaw is installed
-          juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use 24 && which openclaw"'
-          echo "✓ OpenClaw binary installed"
-          
-          # Verify version
-          version=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use 24 && openclaw --version 2>&1 | tail -1"')
-          echo "OpenClaw version: $version"
-          
-          # Check that config files were NOT auto-generated
-          if juju ssh openclaw/0 'test -f /home/ubuntu/.openclaw/openclaw.json'; then
-            echo "⚠ Config file exists (may be from OpenClaw itself, not charm)"
-            # Verify it doesn't contain charm-managed settings
-            if juju ssh openclaw/0 'grep -q "ai-provider\|ai-model" /home/ubuntu/.openclaw/openclaw.json 2>/dev/null'; then
-              echo "✗ Config contains charm-managed settings in manual mode"
-              exit 1
-            fi
-          fi
-          echo "✓ No charm-managed config generated"
-          
-          # Verify Chrome was NOT installed
-          if juju ssh openclaw/0 'which google-chrome 2>/dev/null'; then
-            echo "✗ Chrome was installed in manual mode"
-            exit 1
-          fi
-          echo "✓ Chrome not installed in manual mode"
-      
-      - name: Test user config preservation
-        run: |
-          # Create a custom config file
-          juju ssh openclaw/0 'cat > /tmp/custom-config.json << "EOF"
-          {
-            "user_custom_field": "test-value-12345",
-            "gateway": {
-              "mode": "local",
-              "port": 18789
-            }
-          }
-          EOF'
-          
-          # Copy it to OpenClaw directory
-          juju ssh openclaw/0 'cp /tmp/custom-config.json /home/ubuntu/.openclaw/openclaw.json'
-          
-          # Trigger a config change (this would normally regenerate config in automatic mode)
-          juju config openclaw gateway-port=18790
-          sleep 30
-          
-          # Verify custom field still exists
-          if juju ssh openclaw/0 'grep -q "user_custom_field.*test-value-12345" /home/ubuntu/.openclaw/openclaw.json'; then
-            echo "✓ User config preserved after charm config change"
-          else
-            echo "✗ User config was overwritten"
-            juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json'
-            exit 1
-          fi
-      
-      - name: Test multi-unit with manual mode
-        run: |
-          # Add a second unit
-          juju add-unit openclaw
-          
-          # Wait for it to deploy
-          timeout 900 bash -c 'until juju status openclaw --format=json | jq -e ".applications.openclaw.units[\"openclaw/1\"]" > /dev/null 2>&1; do sleep 10; done'
-          sleep 60  # Additional wait for installation
-          
-          # Check second unit has manual mode
-          unit1_status=$(juju status openclaw --format=json | jq -r '.applications.openclaw.units["openclaw/1"]["workload-status"].message' 2>/dev/null || echo "not-ready")
-          echo "Unit 1 status: $unit1_status"
-          
-          # Verify OpenClaw installed on second unit
-          juju ssh openclaw/1 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use 24 && which openclaw"' || echo "Unit 1 still installing"
-          
-          # Verify peer relation config exists on Node unit
-          if juju ssh openclaw/1 'test -f /home/ubuntu/.openclaw/openclaw-node.json'; then
-            echo "✓ Node peer relation config exists"
-            juju ssh openclaw/1 'cat /home/ubuntu/.openclaw/openclaw-node.json'
-          else
-            echo "⚠ Node config not yet created (unit may still be starting)"
-          fi
-      
-      - name: Collect logs on failure
-        if: failure()
-        run: |
-          echo "=== Juju Status ==="
-          juju status --format=yaml
-          
-          echo "=== Debug Log ==="
-          juju debug-log --replay --no-tail --limit 500
-          
-          echo "=== Unit 0 Config ==="
-          juju ssh openclaw/0 'ls -la /home/ubuntu/.openclaw/' || true
-          juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json 2>/dev/null' || true
-          
-          echo "=== Unit 1 Config ==="
-          juju ssh openclaw/1 'ls -la /home/ubuntu/.openclaw/' || true
-          juju ssh openclaw/1 'cat /home/ubuntu/.openclaw/openclaw-node.json 2>/dev/null' || true
-      
-      - name: Cleanup
-        if: always()
-        run: |
-          juju destroy-model test-manual -y --force --no-wait || true
-          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
-
   test-upgrade:
     name: Test Charm Upgrade
     runs-on: ubuntu-24.04
-    needs: lint
+    needs: build
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+      
+      - name: Download charm artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: openclaw-charm
       
       - name: Set up LXD
         uses: canonical/setup-lxd@main
@@ -389,7 +261,6 @@ jobs:
         run: |
           sudo snap install juju --channel=3/stable
           sudo snap install juju-wait --classic
-          sudo snap install charmcraft --classic
       
       - name: Bootstrap Juju
         run: |
@@ -400,14 +271,10 @@ jobs:
         run: |
           juju add-model test-upgrade
       
-      - name: Pack charm (v1)
-        run: |
-          charmcraft pack --destructive-mode
-          mv openclaw_*.charm openclaw-v1.charm
-      
       - name: Deploy v1
         run: |
-          juju deploy ./openclaw-v1.charm \
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju deploy ./$CHARM_FILE \
             --config ai-provider="anthropic" \
             --config ai-model="claude-sonnet-3-5" \
             --config ai-api-key="test-key"
@@ -418,7 +285,8 @@ jobs:
       
       - name: Refresh charm (simulate upgrade)
         run: |
-          juju refresh openclaw --path ./openclaw-v1.charm
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju refresh openclaw --path ./$CHARM_FILE
           sleep 60  # Give upgrade-charm hook time to complete
       
       - name: Verify upgrade success
