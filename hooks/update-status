@@ -1,13 +1,10 @@
 #!/bin/bash
 set -e
 
-CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]})/.." && pwd)"
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$CHARM_DIR/hooks/common.sh"
 
 ROLE="$(get_unit_role)"
-MANUAL_RAW="$(config-get manual)"
-SHOULD_MANAGE="$(should_manage_config)"
-log_debug "update-status: role=$ROLE, manual_raw='$MANUAL_RAW', should_manage='$SHOULD_MANAGE'"
 
 if [ "$ROLE" = "gateway" ]; then
     # Check service state - accept both 'active' and 'activating' as valid
@@ -33,12 +30,11 @@ if [ "$ROLE" = "gateway" ]; then
         fi
         
         # Check if manual mode is enabled
-        manual_raw="$(config-get manual)"
-        should_manage="$(should_manage_config)"
-        if [ "$should_manage" = "false" ]; then
-            status-set active "Gateway: $url (manual mode) [debug: manual_raw=$manual_raw]"
+        manual_config_value="$(config-get manual)"
+        if [ "$(should_manage_config)" = "false" ]; then
+            status-set active "Gateway: $url (manual mode) DEBUG:$manual_config_value"
         elif validate_config; then
-            status-set active "Gateway: $url [debug: manual_raw=$manual_raw, should_manage=$should_manage]"
+            status-set active "Gateway: $url"
         else
             status-set blocked "Gateway running but configuration incomplete"
         fi
