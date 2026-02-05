@@ -132,9 +132,8 @@ if [ "$(config-get auto-update)" = "True" ]; then
     log_info "OpenClaw updated to version $INSTALLED_VERSION"
 fi
 
-generate_config
-
 if [ "$ROLE" = "gateway" ]; then
+    generate_config
     if is_gateway_running; then
         log_info "Gateway service already running - restarting after upgrade"
         if restart_openclaw; then
@@ -158,6 +157,12 @@ if [ "$ROLE" = "gateway" ]; then
         status-set maintenance "Upgrade complete, waiting for start hook"
     fi
 else
+    # Node unit - remove openclaw.json if it exists (should only have node.json)
+    if [ -f "/home/ubuntu/.openclaw/openclaw.json" ]; then
+        log_info "Removing openclaw.json from Node unit (Nodes should only have node.json)"
+        rm -f /home/ubuntu/.openclaw/openclaw.json
+    fi
+    
     if is_node_running; then
         log_info "Node service already running - restarting after upgrade"
         if restart_openclaw_node; then

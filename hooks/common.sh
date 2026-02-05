@@ -556,7 +556,8 @@ generate_node_config() {
         node_id=$(uuidgen)
     fi
     
-    display_name=$(hostname)
+    # Use Juju unit name for display (e.g., openclaw/1) to match Juju status
+    display_name="${JUJU_UNIT_NAME:-$(hostname)}"
     
     mkdir -p /home/ubuntu/.openclaw
     
@@ -711,6 +712,53 @@ EOF
     loginctl enable-linger ubuntu || log_warn "Failed to enable lingering for ubuntu user"
     
     log_info "Node systemd user service file created: openclaw-node.service (will be enabled on start)"
+}
+
+update_node_service_token() {
+    local gateway_token relation_id leader_unit
+    local override_dir="/home/ubuntu/.config/systemd/user/openclaw-node.service.d"
+    local override_file="$override_dir/gateway-token.conf"
+    
+    relation_id=$(relation-ids openclaw-cluster 2>/dev/null | head -1)
+    if [ -z "$relation_id" ]; then
+        log_warn "Peer relation not found - cannot set gateway token"
+        return 0
+    fi
+    
+    for unit in $(relation-list -r "$relation_id" 2>/dev/null); do
+        local test_host
+        test_host="$(relation-get -r "$relation_id" gateway-host "$unit" 2>/dev/null || echo '')"
+        if [ -n "$test_host" ]; then
+            leader_unit="$unit"
+            break
+        fi
+    done
+    
+    if [ -z "$leader_unit" ]; then
+        log_warn "Gateway unit not found - cannot retrieve token"
+        return 0
+    fi
+    
+    gateway_token="$(relation-get -r "$relation_id" gateway-token "$leader_unit" 2>/dev/null || echo '')"
+    
+    if [ -z "$gateway_token" ]; then
+        log_warn "Gateway token not available yet"
+        return 0
+    fi
+    
+    log_info "Updating Node service with gateway token via systemd drop-in"
+    
+    sudo -u ubuntu bash -l -c "mkdir -p $override_dir"
+    
+    sudo -u ubuntu bash -l -c "cat > $override_file" <<EOF
+[Service]
+Environment="OPENCLAW_GATEWAY_TOKEN=${gateway_token}"
+EOF
+    
+    chown ubuntu:ubuntu "$override_file"
+    chmod 644 "$override_file"
+    
+    log_info "Gateway token set in systemd drop-in: $override_file"
 }
 
 start_openclaw() {

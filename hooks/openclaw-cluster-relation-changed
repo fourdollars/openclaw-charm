@@ -33,6 +33,7 @@ elif [ "$ROLE" = "node" ]; then
         
         if generate_node_config; then
             create_node_systemd_service
+            update_node_service_token
             
             if systemctl is-active --quiet openclaw-node.service; then
                 restart_openclaw_node

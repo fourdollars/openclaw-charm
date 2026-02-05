@@ -159,55 +159,10 @@ else
     log_warn "openclaw-bootstrap-operator script not found in charm files"
 fi
 
-# Initialize minimal OpenClaw configuration
-# This creates a basic config that allows the gateway to start
-# Users can override this later by editing openclaw.json or setting manual=false
-log_info "Initializing OpenClaw configuration"
-status-set maintenance "Initializing OpenClaw configuration"
-
-GATEWAY_PORT="$(config-get gateway-port)"
-GATEWAY_BIND="$(config-get gateway-bind)"
-
-# Convert gateway-bind config to openclaw onboard bind mode
-case "$GATEWAY_BIND" in
-    loopback)
-        BIND_MODE="loopback"
-        ;;
-    lan)
-        BIND_MODE="lan"
-        ;;
-    *)
-        # Specific IP address - use lan mode as closest match
-        BIND_MODE="lan"
-        ;;
-esac
-
-# Run openclaw onboard to create minimal config
-# This ensures the gateway service can start even in manual mode
-# The config-changed hook will update this with full settings if manual=false
-if sudo -u ubuntu bash -l -c "
-    export NVM_DIR=\"/home/ubuntu/.nvm\"
-    [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
-    export BUN_INSTALL=\"/home/ubuntu/.bun\"
-    [ -d \"\$BUN_INSTALL/bin\" ] && export PATH=\"\$BUN_INSTALL/bin:\$PATH\"
-    cd /home/ubuntu
-    openclaw onboard \
-        --non-interactive \
-        --accept-risk \
-        --mode local \
-        --gateway-port $GATEWAY_PORT \
-        --gateway-bind $BIND_MODE \
-        --gateway-auth token \
-        --skip-channels \
-        --skip-skills \
-        --skip-daemon
-" >/tmp/openclaw-onboard.log 2>&1; then
-    log_info "OpenClaw configuration initialized successfully"
-    log_info "Gateway token generated - retrieve with: juju run openclaw/leader get-gateway-token"
-else
-    log_warn "OpenClaw onboard completed with warnings (check /tmp/openclaw-onboard.log)"
-    # Non-fatal - config-changed will handle full configuration
-fi
+# Note: OpenClaw initialization happens in config-changed/start hooks after role determination
+# - Gateway units run: openclaw onboard (creates openclaw.json)
+# - Node units run: openclaw node install (creates node.json and systemd service)
+log_info "OpenClaw installation complete - configuration will be initialized by config-changed hook"
 
 status-set active "Installation complete"
 log_info "OpenClaw installation completed successfully"

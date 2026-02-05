@@ -229,6 +229,8 @@ else
         exit 1
     fi
     
+    update_node_service_token
+    
     if is_node_running; then
         log_info "Node service already running (likely from upgrade-charm hook)"
         gateway_unit=""

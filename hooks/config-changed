@@ -164,6 +164,8 @@ else
         fi
     fi
     
+    update_node_service_token
+    
     # Start or restart Node service
     if run_systemctl_user is-active --quiet openclaw-node.service 2>/dev/null; then
         log_info "Restarting Node to apply configuration changes"
