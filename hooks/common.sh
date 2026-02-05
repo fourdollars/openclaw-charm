@@ -35,7 +35,8 @@ should_manage_config() {
     local manual_mode
     manual_mode="$(config-get manual)"
     
-    if [ "$manual_mode" = "True" ]; then
+    # Handle both "True" (Juju 2.x) and "true" (Juju 3.x) for boolean values
+    if [ "$manual_mode" = "True" ] || [ "$manual_mode" = "true" ]; then
         log_debug "Manual mode enabled - charm will not manage configuration"
         echo "false"
     else
