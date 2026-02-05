@@ -30,7 +30,7 @@ if [ "$(should_manage_config)" = "false" ]; then
             fi
             
             url="http://${ip}:${port}"
-            status-set active "Gateway: $url"
+            status-set active "Manual mode - Gateway: $url"
             log_info "Manual mode: Gateway running at $url"
             exit 0
         fi
@@ -47,7 +47,7 @@ if [ "$(should_manage_config)" = "false" ]; then
             fi
             
             url="http://${ip}:${port}"
-            status-set active "Gateway: $url"
+            status-set active "Manual mode - Gateway: $url"
             log_info "Manual mode: Gateway started at $url"
         else
             status-set blocked "Failed to start Gateway service"
