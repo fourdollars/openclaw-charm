@@ -365,3 +365,19 @@ options:
     type: string
     default: info
     description: Log level (debug, info, warn, error)
+  
+  manual:
+    type: boolean
+    default: false
+    description: |
+      Manual configuration mode. When enabled (manual=true):
+      - Charm will NOT auto-generate openclaw.json or node.json
+      - User is responsible for creating and managing OpenClaw configuration
+      - Charm only installs OpenClaw and manages systemd services
+      - Peer relations still work for multi-unit deployments
+      - Environment file (.openclaw/environment) is still created for systemd
+      
+      When disabled (manual=false, default):
+      - Charm auto-generates configuration from Juju config options
+      - AI providers, channels, and settings are managed by the charm
+      - Configuration updates on 'juju config' changes
