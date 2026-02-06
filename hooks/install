@@ -27,7 +27,7 @@ apt-get install -y \
     gnupg \
     unzip
 
-ensure_chrome_installed
+ensure_browser_installed
 
 # Use ubuntu user (already exists on Ubuntu systems)
 

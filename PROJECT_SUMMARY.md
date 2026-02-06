@@ -274,7 +274,7 @@ juju deploy openclaw --channel edge \
   --config dm-policy="pairing" \
   --config sandbox-mode="all" \
   --config gateway-bind="loopback" \
-  --config enable-browser-tool=false
+  --config use-browser=""
 ```
 
 ---
@@ -370,7 +370,7 @@ juju deploy openclaw --channel=candidate
 dm-policy: pairing        # Require pairing for DMs
 sandbox-mode: non-main    # Sandbox group/channel sessions
 gateway-bind: loopback    # Don't expose to public internet
-enable-browser-tool: false  # Disable if not needed
+use-browser: ""  # Disable if not needed
 ```
 
 ---

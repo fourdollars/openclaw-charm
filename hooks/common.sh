@@ -242,55 +242,112 @@ install_bun() {
     log_info "Bun installed: v$installed_version"
 }
 
-# Install Google Chrome for browser automation
-install_chrome() {
-    log_info "Checking if Chrome needs to be installed"
+# Install browser for browser automation
+# Supports: chrome, chromium, firefox
+install_browser() {
+    local browser="$1"
     
-    if command -v google-chrome >/dev/null 2>&1; then
-        local chrome_version
-        chrome_version=$(google-chrome --version 2>/dev/null || echo "unknown")
-        log_info "Chrome already installed: $chrome_version"
-        return 0
-    fi
+    log_info "Checking if $browser needs to be installed"
     
-    log_info "Installing Google Chrome for browser automation"
-    
-    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
-    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
-    
-    apt-get update
-    apt-get install -y google-chrome-stable
-    
-    if ! command -v google-chrome >/dev/null 2>&1; then
-        log_error "Chrome installation failed - command not found"
-        return 1
-    fi
-    
-    local chrome_version
-    chrome_version=$(google-chrome --version)
-    log_info "Chrome installed successfully: $chrome_version"
-    return 0
+    case "$browser" in
+        chrome)
+            if command -v google-chrome >/dev/null 2>&1; then
+                local chrome_version
+                chrome_version=$(google-chrome --version 2>/dev/null || echo "unknown")
+                log_info "Chrome already installed: $chrome_version"
+                return 0
+            fi
+            
+            log_info "Installing Google Chrome for browser automation"
+            
+            wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+            echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+            
+            apt-get update
+            apt-get install -y google-chrome-stable
+            
+            if ! command -v google-chrome >/dev/null 2>&1; then
+                log_error "Chrome installation failed - command not found"
+                return 1
+            fi
+            
+            local chrome_version
+            chrome_version=$(google-chrome --version)
+            log_info "Chrome installed successfully: $chrome_version"
+            return 0
+            ;;
+            
+        chromium)
+            if command -v chromium-browser >/dev/null 2>&1 || command -v chromium >/dev/null 2>&1; then
+                local chromium_version
+                chromium_version=$(chromium-browser --version 2>/dev/null || chromium --version 2>/dev/null || echo "unknown")
+                log_info "Chromium already installed: $chromium_version"
+                return 0
+            fi
+            
+            log_info "Installing Chromium for browser automation"
+            
+            apt-get update
+            apt-get install -y chromium-browser
+            
+            if ! command -v chromium-browser >/dev/null 2>&1 && ! command -v chromium >/dev/null 2>&1; then
+                log_error "Chromium installation failed - command not found"
+                return 1
+            fi
+            
+            local chromium_version
+            chromium_version=$(chromium-browser --version 2>/dev/null || chromium --version 2>/dev/null)
+            log_info "Chromium installed successfully: $chromium_version"
+            return 0
+            ;;
+            
+        firefox)
+            if command -v firefox >/dev/null 2>&1; then
+                local firefox_version
+                firefox_version=$(firefox --version 2>/dev/null || echo "unknown")
+                log_info "Firefox already installed: $firefox_version"
+                return 0
+            fi
+            
+            log_info "Installing Firefox for browser automation"
+            
+            apt-get update
+            apt-get install -y firefox
+            
+            if ! command -v firefox >/dev/null 2>&1; then
+                log_error "Firefox installation failed - command not found"
+                return 1
+            fi
+            
+            local firefox_version
+            firefox_version=$(firefox --version)
+            log_info "Firefox installed successfully: $firefox_version"
+            return 0
+            ;;
+            
+        *)
+            log_error "Unsupported browser: $browser (supported: chrome, chromium, firefox)"
+            return 1
+            ;;
+    esac
 }
 
-ensure_chrome_installed() {
+ensure_browser_installed() {
     if [ "$(should_manage_config)" = "false" ]; then
-        log_info "Manual mode enabled - skipping Chrome installation management"
+        log_info "Manual mode enabled - skipping browser installation management"
         return 0
     fi
     
-    local enable_browser_tool
-    enable_browser_tool="$(config-get enable-browser-tool)"
+    local use_browser
+    use_browser="$(config-get use-browser)"
     
-    if [ "$enable_browser_tool" = "True" ]; then
-        if ! command -v google-chrome >/dev/null 2>&1; then
-            log_info "enable-browser-tool is True but Chrome not found - installing"
-            install_chrome
-        else
-            log_debug "enable-browser-tool is True and Chrome is already installed"
-        fi
-    else
-        log_debug "enable-browser-tool is False - skipping Chrome installation"
+    if [ -z "$use_browser" ]; then
+        log_debug "use-browser is empty - skipping browser installation"
+        return 0
     fi
+    
+    log_info "use-browser is set to '$use_browser' - ensuring browser is installed"
+    install_browser "$use_browser"
 }
 
 # Ensure environment file exists (required by systemd service)

@@ -49,7 +49,7 @@ if [ "$(should_manage_config)" = "false" ]; then
     exit 0
 fi
 
-ensure_chrome_installed
+ensure_browser_installed
 
 if [ "$ROLE" = "gateway" ]; then
     if ! validate_config; then

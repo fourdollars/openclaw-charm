@@ -374,13 +374,14 @@ options:
     default: false
     description: Automatically update OpenClaw to latest stable version on upgrade-charm
   
-  enable-browser-tool:
-    type: boolean
-    default: false
+  use-browser:
+    type: string
+    default: ""
     description: |
-      Install Google Chrome for browser automation. OpenClaw's browser tool 
+      Browser to install for browser automation. OpenClaw's browser tool
       enables web browsing, screenshots, and automation via Playwright.
-      Can be enabled post-deployment via 'juju config'.
+      Supported values: 'chrome', 'chromium', 'firefox', or empty string to disable.
+      Can be changed post-deployment via 'juju config'.
   
   log-level:
     type: string

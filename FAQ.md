@@ -774,10 +774,17 @@ Browser automation (Playwright) is disabled by default to reduce installation ti
 **Enable browser automation:**
 
 ```bash
-juju config openclaw enable-browser-tool=true
+# Install Chrome
+juju config openclaw use-browser=chrome
+
+# Or install Chromium
+juju config openclaw use-browser=chromium
+
+# Or install Firefox
+juju config openclaw use-browser=firefox
 ```
 
-This will automatically install Google Chrome and enable browser automation features.
+This will automatically install the specified browser and enable browser automation features.
 
 **Features enabled:**
 
@@ -789,17 +796,19 @@ This will automatically install Google Chrome and enable browser automation feat
 
 **Post-deployment configuration:**
 
-You can enable browser automation **at any time** - it works both during initial deployment and after the charm is already running. The charm will automatically install Chrome when you set this option to `true`.
+You can enable browser automation **at any time** - it works both during initial deployment and after the charm is already running. The charm will automatically install the browser when you set this option.
 
 **For multi-unit deployments:**
 
-Chrome will be installed on all units (both Gateway and Nodes) to ensure browser commands can run anywhere.
+The browser will be installed on all units (both Gateway and Nodes) to ensure browser commands can run anywhere.
 
 **Verification:**
 
 ```bash
-# Check if Chrome is installed
-juju ssh openclaw/0 'google-chrome --version'
+# Check if browser is installed
+juju ssh openclaw/0 'google-chrome --version'  # for chrome
+juju ssh openclaw/0 'chromium-browser --version'  # for chromium
+juju ssh openclaw/0 'firefox --version'  # for firefox
 
 # Check browser service status
 juju ssh openclaw/0 'journalctl -u openclaw.service | grep "browser/service"'
@@ -810,10 +819,10 @@ You should see: `Browser control service ready (profiles=2)`
 **Disable browser automation:**
 
 ```bash
-juju config openclaw enable-browser-tool=false
+juju config openclaw use-browser=""
 ```
 
-**Note:** Disabling will not uninstall Chrome, but OpenClaw will stop advertising browser capabilities.
+**Note:** Disabling will not uninstall the browser, but OpenClaw will stop advertising browser capabilities.
 
 ---
 
@@ -1147,7 +1156,7 @@ ssh -L 18789:127.0.0.1:18789 ubuntu@<gateway-ip>
 | `line-channel-secret` | - | LINE channel secret |
 | `install-method` | npm | npm, pnpm, bun, or source |
 | `version` | latest | OpenClaw version to install |
-| `enable-browser-tool` | false | Enable Playwright browser |
+| `use-browser` | "" | Browser type: chrome, chromium, firefox, or empty |
 | `log-level` | info | debug, info, warn, or error |
 
 ---

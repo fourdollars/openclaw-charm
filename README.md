@@ -424,7 +424,7 @@ juju config openclaw dm-policy="pairing"
 juju config openclaw sandbox-mode="non-main"
 
 # Disable browser automation if not needed
-juju config openclaw enable-browser-tool=false
+juju config openclaw use-browser=""
 ```
 
 ### Gateway Settings
@@ -440,7 +440,7 @@ juju config openclaw gateway-bind="lan"
 juju config openclaw log-level="debug"
 
 # Enable browser automation (can be set anytime)
-juju config openclaw enable-browser-tool=true
+juju config openclaw use-browser=chrome  # or chromium, firefox
 ```
 
 ---
@@ -471,7 +471,7 @@ juju config openclaw enable-browser-tool=true
 | `install-method` | string | npm | Install method: npm, pnpm, bun, source |
 | `version` | string | latest | Version to install |
 | `auto-update` | boolean | false | Auto-update on charm upgrade |
-| `enable-browser-tool` | boolean | false | Enable Playwright browser (post-deployment supported) |
+| `use-browser` | string | "" | Browser for automation: chrome, chromium, firefox, or empty |
 | `log-level` | string | info | Log level: debug, info, warn, error |
 
 ---
