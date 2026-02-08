@@ -406,7 +406,8 @@ generate_config() {
         local first_model
         first_model=$(echo "$ai_model" | cut -d',' -f1 | xargs)
         # Check if first model has provider prefix
-        if echo "$first_model" | grep -q '/'; then
+        # Special case: OpenRouter models need openrouter/ prefix even if they contain /
+        if echo "$first_model" | grep -q '^[a-z0-9-]*/' && [ "$ai_provider" != "openrouter" ]; then
             primary_model="$first_model"
         else
             primary_model="${ai_provider}/${first_model}"
@@ -418,7 +419,8 @@ generate_config() {
         log_info "Additional models from ai-model: $(echo "$fallback_models" | tr ',' ' ')"
     else
         # Single model provided
-        if echo "$ai_model" | grep -q '/'; then
+        # Special case: OpenRouter models need openrouter/ prefix even if they contain /
+        if echo "$ai_model" | grep -q '^[a-z0-9-]*/' && [ "$ai_provider" != "openrouter" ]; then
             primary_model="$ai_model"
         else
             primary_model="${ai_provider}/${ai_model}"
@@ -475,7 +477,8 @@ generate_config() {
             model=$(echo "$model" | xargs)
             if [ -n "$model" ]; then
                 # Check if model has provider prefix
-                if echo "$model" | grep -q '/'; then
+                # Special case: OpenRouter models need openrouter/ prefix even if they contain /
+                if echo "$model" | grep -q '^[a-z0-9-]*/' && [ "$ai_provider" != "openrouter" ]; then
                     full_model="$model"
                 else
                     full_model="${ai_provider}/${model}"
@@ -537,7 +540,8 @@ generate_config() {
                     model=$(echo "$model" | xargs)
                     if [ -n "$model" ]; then
                         # Check if model has provider prefix
-                        if echo "$model" | grep -q '/'; then
+                        # Special case: OpenRouter models need openrouter/ prefix even if they contain /
+                        if echo "$model" | grep -q '^[a-z0-9-]*/' && [ "$slot_provider" != "openrouter" ]; then
                             full_model="$model"
                         else
                             full_model="${slot_provider}/${model}"
@@ -550,7 +554,8 @@ generate_config() {
                 done
             else
                 # Single model in slot
-                if echo "$slot_model" | grep -q '/'; then
+                # Special case: OpenRouter models need openrouter/ prefix even if they contain /
+                if echo "$slot_model" | grep -q '^[a-z0-9-]*/' && [ "$slot_provider" != "openrouter" ]; then
                     full_model="$slot_model"
                 else
                     full_model="${slot_provider}/${slot_model}"
