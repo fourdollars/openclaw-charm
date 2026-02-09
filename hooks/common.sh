@@ -388,7 +388,7 @@ generate_config() {
     local config_file="/home/ubuntu/.openclaw/openclaw.json"
     local temp_file="${config_file}.tmp"
     local ai_provider ai_model api_key
-    local gateway_port gateway_bind log_level
+    local gateway_port gateway_bind log_level dm_scope
     
     ai_provider="$(config-get ai-provider)"
     ai_model="$(config-get ai-model)"
@@ -396,6 +396,7 @@ generate_config() {
     gateway_port="$(config-get gateway-port)"
     gateway_bind="$(config-get gateway-bind)"
     log_level="$(config-get log-level)"
+    dm_scope="$(config-get dm-scope)"
     
     log_info "Generating OpenClaw configuration using jq"
     
@@ -448,6 +449,7 @@ generate_config() {
         --argjson port "$gateway_port" \
         --arg model "${primary_model}" \
         --arg log_level "$log_level" \
+        --arg dm_scope "$dm_scope" \
         '{
             gateway: {
                 mode: "local",
@@ -464,6 +466,9 @@ generate_config() {
                         primary: $model
                     }
                 }
+            },
+            session: {
+                dmScope: $dm_scope
             },
             logging: {
                 level: $log_level
@@ -1159,6 +1164,23 @@ validate_config() {
     if [ -z "$line_channel_access_token" ] && [ -n "$line_channel_secret" ]; then
         log_error "LINE channel-secret configured but channel-access-token is missing"
         errors=$((errors + 1))
+    fi
+    
+    # Validate dm-scope
+    local dm_scope
+    dm_scope="$(config-get dm-scope)"
+    
+    if [ -n "$dm_scope" ]; then
+        case "$dm_scope" in
+            main|per-peer|per-channel-peer|per-account-channel-peer)
+                log_debug "Valid dm-scope: $dm_scope"
+                ;;
+            *)
+                log_error "Invalid dm-scope: $dm_scope"
+                log_error "Supported values: main, per-peer, per-channel-peer, per-account-channel-peer"
+                errors=$((errors + 1))
+                ;;
+        esac
     fi
     
     return $errors

@@ -420,12 +420,39 @@ juju config openclaw \
 # Set DM access policy (pairing mode recommended)
 juju config openclaw dm-policy="pairing"
 
+# Set DM session scope (isolate conversations per user)
+juju config openclaw dm-scope="per-channel-peer"
+
 # Configure sandbox mode
 juju config openclaw sandbox-mode="non-main"
 
 # Disable browser automation if not needed
 juju config openclaw use-browser=""
 ```
+
+**DM Session Scope Options:**
+
+The `dm-scope` setting controls how direct message conversations are isolated:
+
+- **`main`** (default): All DMs share the main session for continuity across devices/channels
+  - ✅ Best for: Single-user personal assistants
+  - ⚠️ **Security Risk**: Multiple users will share conversation context
+
+- **`per-peer`**: Isolate sessions by sender ID across channels
+  - ✅ Best for: Multi-user setups where the same person contacts via different channels
+  - Each unique sender gets their own isolated session
+
+- **`per-channel-peer`**: Isolate by channel + sender (recommended for multi-user inboxes)
+  - ✅ Best for: Agents receiving DMs from multiple people on one channel
+  - ✅ Recommended for shared inboxes
+  - Prevents conversation leakage between users
+
+- **`per-account-channel-peer`**: Isolate by account + channel + sender
+  - ✅ Best for: Multi-account inboxes on the same channel
+  - Maximum isolation for complex multi-user scenarios
+
+**Security Warning:** If your agent can receive DMs from multiple people (pairing approvals for multiple senders, DM allowlist with multiple entries, or `dm-policy: "open"`), you should use `per-channel-peer` or `per-account-channel-peer` to prevent private information leakage between users.
+
 
 ### Gateway Settings
 
@@ -467,6 +494,7 @@ juju config openclaw use-browser=chrome  # or chromium, firefox
 | `line-channel-access-token` | string | - | LINE channel access token |
 | `line-channel-secret` | string | - | LINE channel secret |
 | `dm-policy` | string | pairing | DM policy: pairing, open, closed |
+| `dm-scope` | string | main | DM session scope: main, per-peer, per-channel-peer, per-account-channel-peer |
 | `sandbox-mode` | string | non-main | Sandbox: all, non-main, none |
 | `install-method` | string | npm | Install method: npm, pnpm, bun, source |
 | `version` | string | latest | Version to install |

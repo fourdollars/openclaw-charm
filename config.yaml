@@ -350,6 +350,19 @@ options:
       DM access policy: 'pairing' (require pairing code), 'open' (auto-respond), 
       or 'closed' (reject all DMs)
   
+  dm-scope:
+    type: string
+    default: main
+    description: |
+      DM session scope for isolating direct message conversations:
+      - 'main' (default): All DMs share the main session for continuity across devices/channels
+      - 'per-peer': Isolate sessions by sender ID across channels
+      - 'per-channel-peer': Isolate by channel + sender (recommended for multi-user inboxes)
+      - 'per-account-channel-peer': Isolate by account + channel + sender (recommended for multi-account inboxes)
+      
+      Security Warning: If your agent receives DMs from multiple people, use 'per-channel-peer'
+      or 'per-account-channel-peer' to prevent conversation context leakage between users.
+  
   sandbox-mode:
     type: string
     default: non-main
