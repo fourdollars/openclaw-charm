@@ -1,0 +1,50 @@
+#!/bin/bash
+set -e
+
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$CHARM_DIR/hooks/common.sh"
+
+FORMAT="$(action-get format || echo "json")"
+MODELS_JSON="[]"
+
+# Helper to add model to JSON array
+add_model() {
+    local index="$1"
+    local provider="$2"
+    local model="$3"
+    local base_url="$4"
+    
+    if [ -n "$provider" ] && [ -n "$model" ]; then
+        # Use a temporary file to avoid pipe subshell issues with variable scope if we were not using command substitution
+        # Here we use command substitution which is fine
+        MODELS_JSON=$(echo "$MODELS_JSON" | jq --arg index "$index" \
+            --arg provider "$provider" \
+            --arg model "$model" \
+            --arg baseUrl "$base_url" \
+            '. + [{index: $index, provider: $provider, model: $model, baseUrl: $baseUrl}]')
+    fi
+}
+
+# Check primary model
+AI_PROVIDER=$(config-get ai-provider)
+AI_MODEL=$(config-get ai-model)
+AI_BASE_URL=$(config-get ai-base-url)
+add_model "primary" "$AI_PROVIDER" "$AI_MODEL" "$AI_BASE_URL"
+
+# Check additional slots 0-9
+for i in {0..9}; do
+    PROVIDER=$(config-get "ai${i}-provider")
+    MODEL=$(config-get "ai${i}-model")
+    BASE_URL=$(config-get "ai${i}-base-url")
+    add_model "$i" "$PROVIDER" "$MODEL" "$BASE_URL"
+done
+
+# Output result
+if [ "$FORMAT" = "json" ]; then
+    action-set result="$MODELS_JSON"
+    # Echo JSON for visibility in logs/stdout if needed
+    echo "$MODELS_JSON"
+else
+    # Text format: simplified list
+    echo "$MODELS_JSON" | jq -r '.[] | "\(.index): \(.provider)/\(.model) \(if .baseUrl != "" then "(\(.baseUrl))" else "" end)"'
+fi
