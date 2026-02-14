@@ -35,3 +35,12 @@ backup:
       default: false
       description: |
         Force backup even if active processes are detected (not recommended)
+
+list-models:
+  description: List all configured AI models (primary and additional slots)
+  params:
+    format:
+      type: string
+      default: "json"
+      description: |
+        Output format: 'json' (structured details) or 'text' (simple list)
