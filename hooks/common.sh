@@ -1204,6 +1204,65 @@ close_ports() {
     close-port "$gateway_port/tcp"
 }
 
+# Update openclaw symlink to point to the latest installed version
+update_openclaw_symlink() {
+    local install_method
+    install_method="$(config-get install-method)"
+    
+    log_info "Updating openclaw symlink"
+    
+    case "$install_method" in
+        npm|pnpm|source)
+            if [ -d "/home/ubuntu/.nvm" ]; then
+                # Get the default nvm version (the one currently configured)
+                local nvm_node_version
+                nvm_node_version="$(sudo -u ubuntu bash -l -c 'export NVM_DIR="/home/ubuntu/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; nvm version default' 2>/dev/null | tr -d '\n')"
+                
+                if [ -z "$nvm_node_version" ] || [ "$nvm_node_version" = "none" ]; then
+                    # Fallback: find the latest version matching configured node-version
+                    local configured_version
+                    configured_version="$(config-get node-version)"
+                    # Use glob pattern and sort to find latest matching version
+                    nvm_node_version=""
+                    if [ -d "/home/ubuntu/.nvm/versions/node" ]; then
+                        for ver in /home/ubuntu/.nvm/versions/node/v"${configured_version}".*; do
+                            if [ -d "$ver" ]; then
+                                ver_name="$(basename "$ver")"
+                                if [ -z "$nvm_node_version" ]; then
+                                    nvm_node_version="$ver_name"
+                                else
+                                    # Keep the highest version using sort -V
+                                    nvm_node_version="$(printf "%s\n%s\n" "$nvm_node_version" "$ver_name" | sort -V | tail -1)"
+                                fi
+                            fi
+                        done
+                    fi
+                fi
+                
+                if [ -n "$nvm_node_version" ] && [ -f "/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw" ]; then
+                    ln -sf "/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw" /usr/local/bin/openclaw
+                    log_info "Updated symlink for openclaw at /usr/local/bin/openclaw -> /home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw"
+                else
+                    log_warn "openclaw binary not found at /home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw"
+                fi
+            else
+                log_warn "nvm directory not found, cannot update symlink"
+            fi
+            ;;
+        bun)
+            if [ -f "/home/ubuntu/.bun/bin/openclaw" ]; then
+                ln -sf "/home/ubuntu/.bun/bin/openclaw" /usr/local/bin/openclaw
+                log_info "Updated symlink for openclaw at /usr/local/bin/openclaw -> /home/ubuntu/.bun/bin/openclaw"
+            else
+                log_warn "openclaw binary not found at /home/ubuntu/.bun/bin/openclaw"
+            fi
+            ;;
+        *)
+            log_warn "Unknown install method: $install_method"
+            ;;
+    esac
+}
+
 # Run command as ubuntu user with appropriate runtime environment (nvm or bun)
 run_as_user() {
     local cmd="$1"

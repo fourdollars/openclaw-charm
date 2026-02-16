@@ -78,17 +78,48 @@ if [ "$ROLE" = "gateway" ]; then
         log_info "Auto-update enabled - checking for updates"
         OPENCLAW_VERSION="$(config-get version)"
         
+        npm_package="openclaw"
+        if [ -n "$OPENCLAW_VERSION" ] && [ "$OPENCLAW_VERSION" != "latest" ]; then
+            npm_package="openclaw@${OPENCLAW_VERSION}"
+        fi
+        
         case "$INSTALL_METHOD" in
-            npm)
-                su - openclaw -c "npm update -g openclaw@${OPENCLAW_VERSION}"
+            npm|pnpm)
+                sudo -u ubuntu bash -l -c "
+                    export NVM_DIR=\"/home/ubuntu/.nvm\"
+                    [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                    nvm use $(config-get node-version)
+                    npm install -g ${npm_package}
+                "
+                update_openclaw_symlink
                 ;;
-            pnpm)
-                su - openclaw -c "pnpm update -g openclaw@${OPENCLAW_VERSION}"
+            bun)
+                bun_package="openclaw"
+                if [ -n "$OPENCLAW_VERSION" ] && [ "$OPENCLAW_VERSION" != "latest" ]; then
+                    bun_package="openclaw@${OPENCLAW_VERSION}"
+                fi
+                sudo -u ubuntu bash -l -c "bun install -g ${bun_package}"
+                update_openclaw_symlink
                 ;;
             source)
-                sudo -u ubuntu bash -l -c "cd /home/ubuntu/openclaw && git fetch && git checkout ${OPENCLAW_VERSION} && pnpm install && pnpm build"
+                sudo -u ubuntu bash -l -c "
+                    export NVM_DIR=\"/home/ubuntu/.nvm\"
+                    [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                    nvm use $(config-get node-version)
+                    cd /home/ubuntu/openclaw && git fetch && git checkout ${OPENCLAW_VERSION} && pnpm install && pnpm build
+                "
+                update_openclaw_symlink
                 ;;
         esac
+        
+        INSTALLED_VERSION=$(sudo -u ubuntu bash -l -c "
+            export NVM_DIR=\"/home/ubuntu/.nvm\"
+            [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+            export BUN_INSTALL=\"/home/ubuntu/.bun\"
+            [ -d \"\$BUN_INSTALL/bin\" ] && export PATH=\"\$BUN_INSTALL/bin:\$PATH\"
+            timeout 5 openclaw --version 2>/dev/null
+        " || echo "unknown")
+        log_info "OpenClaw updated to version $INSTALLED_VERSION"
     fi
     
     generate_config
@@ -138,8 +169,44 @@ if [ "$ROLE" = "gateway" ]; then
             exit 1
         fi
     else
-        log_info "Gateway not running - configuration updated for next start"
-        status-set active "Configuration updated"
+        # Gateway not currently active - might be starting up
+        # Wait briefly for service to become active (e.g., during upgrade-charm)
+        log_info "Gateway not currently active - waiting for service to start"
+        max_wait=10
+        waited=0
+        while [ $waited -lt $max_wait ]; do
+            sleep 1
+            waited=$((waited + 1))
+            if run_systemctl_user is-active --quiet openclaw-gateway.service; then
+                log_info "Gateway became active after ${waited}s"
+                bind="$(config-get gateway-bind)"
+                if [ "$bind" = "loopback" ]; then
+                    ip="127.0.0.1"
+                else
+                    ip=$(unit-get private-address)
+                fi
+                status-set active "Gateway: http://${ip}:${NEW_PORT}"
+                break
+            fi
+        done
+        
+        # If still not active after waiting, check if it's expected to be running
+        if ! run_systemctl_user is-active --quiet openclaw-gateway.service; then
+            # Check if service is enabled (should start eventually)
+            if run_systemctl_user is-enabled --quiet openclaw-gateway.service 2>/dev/null; then
+                log_info "Gateway service enabled but not yet active - showing URL anyway"
+                bind="$(config-get gateway-bind)"
+                if [ "$bind" = "loopback" ]; then
+                    ip="127.0.0.1"
+                else
+                    ip=$(unit-get private-address)
+                fi
+                status-set active "Gateway: http://${ip}:${NEW_PORT}"
+            else
+                log_info "Gateway not running - configuration updated for next start"
+                status-set active "Configuration updated"
+            fi
+        fi
     fi
 else
     if ! generate_node_config; then

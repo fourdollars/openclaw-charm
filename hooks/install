@@ -64,28 +64,17 @@ case "$INSTALL_METHOD" in
         sudo -u ubuntu bash -l -c "
             export NVM_DIR=\"/home/ubuntu/.nvm\"
             [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+            nvm use $(config-get node-version)
             npm install -g openclaw@${OPENCLAW_VERSION}
         "
         
-        # Make openclaw accessible system-wide for npm/pnpm
-        if [ -d "/home/ubuntu/.nvm" ]; then
-            # shellcheck disable=SC2012
-            nvm_node_version="$(ls -1 /home/ubuntu/.nvm/versions/node | sort -V | tail -1)"
-            if [ -f "/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw" ]; then
-                ln -sf "/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw" /usr/local/bin/openclaw
-                log_info "Created symlink for openclaw at /usr/local/bin/openclaw"
-            fi
-        fi
+        update_openclaw_symlink
         ;;
     bun)
         log_info "Installing OpenClaw via Bun (v${OPENCLAW_VERSION})"
         sudo -u ubuntu bash -l -c "bun install -g openclaw@${OPENCLAW_VERSION}"
         
-        # Make openclaw accessible system-wide for bun
-        if [ -f "/home/ubuntu/.bun/bin/openclaw" ]; then
-            ln -sf "/home/ubuntu/.bun/bin/openclaw" /usr/local/bin/openclaw
-            log_info "Created symlink for openclaw at /usr/local/bin/openclaw"
-        fi
+        update_openclaw_symlink
         ;;
     source)
         log_info "Installing OpenClaw from source"
@@ -96,18 +85,11 @@ case "$INSTALL_METHOD" in
         sudo -u ubuntu bash -l -c "
             export NVM_DIR=\"/home/ubuntu/.nvm\"
             [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+            nvm use $(config-get node-version)
             npm install -g pnpm && cd /home/ubuntu/openclaw && pnpm install && pnpm build
         "
         
-        # Make openclaw accessible system-wide for source install
-        if [ -d "/home/ubuntu/.nvm" ]; then
-            # shellcheck disable=SC2012
-            nvm_node_version="$(ls -1 /home/ubuntu/.nvm/versions/node | sort -V | tail -1)"
-            if [ -f "/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw" ]; then
-                ln -sf "/home/ubuntu/.nvm/versions/node/${nvm_node_version}/bin/openclaw" /usr/local/bin/openclaw
-                log_info "Created symlink for openclaw at /usr/local/bin/openclaw"
-            fi
-        fi
+        update_openclaw_symlink
         ;;
     *)
         log_error "Unknown install method: $INSTALL_METHOD"
