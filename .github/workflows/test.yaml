@@ -610,6 +610,269 @@ jobs:
           juju destroy-model test-auto-update -y --force --no-wait || true
           juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
 
+  test-browser:
+    name: Test Browser Functionality (Chrome)
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Download charm artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: openclaw-charm
+      
+      - name: Set up LXD
+        uses: canonical/setup-lxd@main
+      
+      - name: Install Juju
+        run: |
+          sudo snap install juju --channel=3/stable
+          sudo snap install juju-wait --classic
+      
+      - name: Bootstrap Juju
+        run: |
+          lxc network set lxdbr0 ipv6.address none
+          juju bootstrap localhost test-controller
+      
+      - name: Create test model
+        run: |
+          juju add-model test-browser
+      
+      - name: Deploy with use-browser=chrome
+        run: |
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju deploy ./$CHARM_FILE \
+            --config ai-provider="anthropic" \
+            --config ai-model="claude-sonnet-3-5" \
+            --config ai-api-key="test-key" \
+            --config use-browser="chrome"
+      
+      - name: Wait for deployment
+        run: |
+          juju-wait -v -m test-browser -t 900
+      
+      - name: Verify Chrome installation
+        run: |
+          echo "=== Verifying Chrome installation ==="
+          chrome_version=$(juju ssh openclaw/0 'google-chrome --version' 2>&1 || echo "NOT_INSTALLED")
+          echo "Chrome version: $chrome_version"
+          
+          if echo "$chrome_version" | grep -q "Google Chrome"; then
+            echo "✓ Chrome is installed"
+          else
+            echo "✗ Chrome is not installed"
+            exit 1
+          fi
+      
+      - name: Verify AppArmor is disabled for Chrome
+        run: |
+          echo "=== Verifying AppArmor status ==="
+          
+          # Check if Chrome profile is disabled
+          if juju ssh openclaw/0 'test -L /etc/apparmor.d/disable/chrome'; then
+            echo "✓ Chrome AppArmor profile is disabled (symlink exists)"
+          else
+            echo "✗ Chrome AppArmor profile is not disabled"
+            exit 1
+          fi
+          
+          # Check if Chrome is not loaded in AppArmor
+          aa_status=$(juju ssh openclaw/0 'sudo aa-status 2>&1' || echo "")
+          if echo "$aa_status" | grep -q "chrome"; then
+            echo "✗ Chrome profile is still active in AppArmor"
+            echo "$aa_status"
+            exit 1
+          else
+            echo "✓ Chrome profile is not active in AppArmor"
+          fi
+      
+      - name: Verify browser settings in openclaw.json
+        run: |
+          echo "=== Verifying browser configuration ==="
+          
+          # Get browser config from openclaw.json
+          browser_config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq '.browser')
+          echo "Browser config: $browser_config"
+          
+          # Verify browser.enabled is true
+          enabled=$(echo "$browser_config" | jq -r '.enabled')
+          if [ "$enabled" = "true" ]; then
+            echo "✓ browser.enabled is true"
+          else
+            echo "✗ browser.enabled is not true (got: $enabled)"
+            exit 1
+          fi
+          
+          # Verify browser.headless is true
+          headless=$(echo "$browser_config" | jq -r '.headless')
+          if [ "$headless" = "true" ]; then
+            echo "✓ browser.headless is true"
+          else
+            echo "✗ browser.headless is not true (got: $headless)"
+            exit 1
+          fi
+          
+          # Verify browser.noSandbox is true
+          noSandbox=$(echo "$browser_config" | jq -r '.noSandbox')
+          if [ "$noSandbox" = "true" ]; then
+            echo "✓ browser.noSandbox is true"
+          else
+            echo "✗ browser.noSandbox is not true (got: $noSandbox)"
+            exit 1
+          fi
+          
+          # Verify browser.defaultProfile is "openclaw"
+          defaultProfile=$(echo "$browser_config" | jq -r '.defaultProfile')
+          if [ "$defaultProfile" = "openclaw" ]; then
+            echo "✓ browser.defaultProfile is 'openclaw'"
+          else
+            echo "✗ browser.defaultProfile is not 'openclaw' (got: $defaultProfile)"
+            exit 1
+          fi
+          
+          echo "✓ All browser settings verified"
+      
+      - name: Test browser start and status
+        run: |
+          echo "=== Testing browser start ==="
+          
+          # Start the browser
+          browser_start_output=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use 24 && openclaw browser start"' 2>&1 || echo "FAILED")
+          echo "Browser start output: $browser_start_output"
+          
+          if echo "$browser_start_output" | grep -qE "(Browser started|already running|successfully)"; then
+            echo "✓ Browser start command succeeded"
+          else
+            echo "⚠ Browser start output: $browser_start_output"
+            echo "Continuing to check status..."
+          fi
+          
+          # Wait a moment for browser to initialize
+          sleep 5
+          
+          # Check browser status
+          browser_status=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use 24 && openclaw browser status"' 2>&1 || echo "FAILED")
+          echo "Browser status output: $browser_status"
+          
+          if echo "$browser_status" | grep -qE "(running|active|started|Browser:.*running)"; then
+            echo "✓ Browser status shows browser is running"
+          elif echo "$browser_status" | grep -qE "(stopped|inactive|not running)"; then
+            echo "✗ Browser is not running"
+            echo "Full status: $browser_status"
+            
+            # Check for common issues
+            echo "=== Debugging browser start failure ==="
+            juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use 24 && which google-chrome"' || echo "Chrome binary not found"
+            juju ssh openclaw/0 'sudo -u ubuntu bash -l -c "google-chrome --version"' || echo "Chrome version check failed"
+            juju ssh openclaw/0 'ls -la /etc/apparmor.d/disable/' || echo "AppArmor disable dir check failed"
+            
+            exit 1
+          else
+            echo "⚠ Unexpected browser status output: $browser_status"
+            echo "Cannot determine if browser is running - treating as failure"
+            exit 1
+          fi
+      
+      - name: Test disabling browser
+        run: |
+          echo "=== Testing browser disable ==="
+          
+          # Disable browser
+          juju config openclaw use-browser=""
+          
+          # Wait for config to apply
+          sleep 30
+          
+          # Verify browser.enabled is now false
+          enabled=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq -r '.browser.enabled')
+          if [ "$enabled" = "false" ]; then
+            echo "✓ browser.enabled is false after disabling"
+          else
+            echo "✗ browser.enabled is not false (got: $enabled)"
+            exit 1
+          fi
+          
+          # Verify browser status shows it's stopped or not running
+          browser_status_disabled=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use 24 && openclaw browser status"' 2>&1 || echo "NOT_RUNNING")
+          echo "Browser status after disable: $browser_status_disabled"
+          
+          if echo "$browser_status_disabled" | grep -qE "(stopped|inactive|not running|disabled)"; then
+            echo "✓ Browser is stopped after disabling"
+          else
+            echo "⚠ Browser status after disable: $browser_status_disabled (may still be running)"
+          fi
+      
+      - name: Test re-enabling browser
+        run: |
+          echo "=== Testing browser re-enable ==="
+          
+          # Re-enable browser
+          juju config openclaw use-browser="chrome"
+          
+          # Wait for config to apply
+          sleep 30
+          
+          # Verify browser.enabled is true again
+          enabled=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq -r '.browser.enabled')
+          if [ "$enabled" = "true" ]; then
+            echo "✓ browser.enabled is true after re-enabling"
+          else
+            echo "✗ browser.enabled is not true (got: $enabled)"
+            exit 1
+          fi
+          
+          # Verify service is still active
+          status=$(juju status openclaw --format=json | jq -r '.applications.openclaw.units[]["workload-status"].current' | head -1)
+          if [ "$status" = "active" ]; then
+            echo "✓ Service is still active after browser toggle"
+          else
+            echo "⚠ Service status is: $status"
+          fi
+          
+          # Verify browser can start again after re-enabling
+          browser_start_again=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use 24 && openclaw browser start"' 2>&1 || echo "FAILED")
+          echo "Browser start after re-enable: $browser_start_again"
+          
+          sleep 5
+          
+          browser_status_reenabled=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use 24 && openclaw browser status"' 2>&1 || echo "FAILED")
+          echo "Browser status after re-enable: $browser_status_reenabled"
+          
+          if echo "$browser_status_reenabled" | grep -qE "(running|active|started|Browser:.*running)"; then
+            echo "✓ Browser is running again after re-enabling"
+          else
+            echo "⚠ Browser status after re-enable: $browser_status_reenabled"
+          fi
+      
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== Juju Status ==="
+          juju status --format=yaml
+          
+          echo "=== Debug Log ==="
+          juju debug-log --replay --no-tail --limit 500
+          
+          echo "=== Chrome Installation Status ==="
+          juju ssh openclaw/0 'dpkg -l | grep chrome' || true
+          
+          echo "=== AppArmor Status ==="
+          juju ssh openclaw/0 'sudo aa-status' || true
+          
+          echo "=== Browser Config ==="
+          juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json | jq .browser' || true
+          
+          echo "=== OpenClaw Service Logs ==="
+          juju ssh openclaw/0 'journalctl --user -u openclaw-gateway.service -n 100 --no-pager' || true
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          juju destroy-model test-browser -y --force --no-wait || true
+          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
+
   test-manual-mode:
     name: Test Manual Configuration Mode
     runs-on: ubuntu-24.04

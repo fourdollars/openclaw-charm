@@ -274,6 +274,20 @@ install_browser() {
             local chrome_version
             chrome_version=$(google-chrome --version)
             log_info "Chrome installed successfully: $chrome_version"
+            
+            # Disable AppArmor for Chrome (required for browser automation in containers)
+            log_info "Disabling AppArmor for Chrome to enable browser automation"
+            if [ -f /etc/apparmor.d/chrome ]; then
+                if [ ! -d /etc/apparmor.d/disable ]; then
+                    mkdir -p /etc/apparmor.d/disable
+                fi
+                ln -sf /etc/apparmor.d/chrome /etc/apparmor.d/disable/ 2>/dev/null || true
+                apparmor_parser -R /etc/apparmor.d/chrome 2>/dev/null || true
+                log_info "AppArmor disabled for Chrome"
+            else
+                log_debug "AppArmor profile for Chrome not found - skipping"
+            fi
+            
             return 0
             ;;
             
@@ -960,6 +974,38 @@ restart_openclaw() {
     else
         log_error "OpenClaw Gateway service failed to restart"
         run_systemctl_user status openclaw-gateway.service || true
+        return 1
+    fi
+}
+
+configure_browser_settings() {
+    if [ "$(should_manage_config)" = "false" ]; then
+        log_info "Manual mode enabled - skipping browser configuration management"
+        return 0
+    fi
+    
+    local use_browser
+    use_browser="$(config-get use-browser)"
+    
+    local browser_enabled="false"
+    if [ -n "$use_browser" ]; then
+        browser_enabled="true"
+    fi
+    
+    log_info "Configuring browser settings via openclaw config set (enabled: $browser_enabled)"
+    
+    if sudo -u ubuntu bash -l <<EOF
+. ~/.nvm/nvm.sh
+openclaw config set browser.headless true
+openclaw config set browser.noSandbox true
+openclaw config set browser.defaultProfile "openclaw"
+openclaw config set browser.enabled $browser_enabled
+EOF
+    then
+        log_info "Browser settings configured successfully"
+        return 0
+    else
+        log_error "Failed to configure browser settings"
         return 1
     fi
 }

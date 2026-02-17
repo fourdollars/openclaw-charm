@@ -136,6 +136,8 @@ if [ "$ROLE" = "gateway" ]; then
     if run_systemctl_user is-active --quiet openclaw-gateway.service; then
         log_info "Restarting Gateway to apply configuration changes"
         if restart_openclaw; then
+            configure_browser_settings
+            
             bind="$(config-get gateway-bind)"
             if [ "$bind" = "loopback" ]; then
                 ip="127.0.0.1"
