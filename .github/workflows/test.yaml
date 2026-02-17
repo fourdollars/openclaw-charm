@@ -776,12 +776,12 @@ jobs:
           # Wait for config to apply
           sleep 30
           
-          # Verify browser.enabled is now false
-          enabled=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq -r '.browser.enabled')
-          if [ "$enabled" = "false" ]; then
-            echo "✓ browser.enabled is false after disabling"
+          # Verify browser object is null (not present) when use-browser is empty
+          browser_config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq '.browser')
+          if [ "$browser_config" = "null" ]; then
+            echo "✓ browser object is null when use-browser is empty"
           else
-            echo "✗ browser.enabled is not false (got: $enabled)"
+            echo "✗ browser object is not null (got: $browser_config)"
             exit 1
           fi
           
@@ -836,6 +836,86 @@ jobs:
           else
             echo "⚠ Browser status after re-enable: $browser_status_reenabled"
           fi
+      
+      - name: Test browser config persistence after container restart
+        run: |
+          echo "=== Testing browser config persistence after container restart ==="
+          
+          # Verify browser is currently enabled and configured
+          enabled_before=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq -r '.browser.enabled')
+          if [ "$enabled_before" != "true" ]; then
+            echo "✗ Browser not enabled before restart (got: $enabled_before)"
+            exit 1
+          fi
+          echo "✓ Browser is enabled before restart"
+          
+          # Get the LXD container name from juju machine mapping
+          machine_id=$(juju status openclaw --format=json | jq -r '.applications.openclaw.units | to_entries[0].value["machine"]')
+          container_name="juju-${machine_id}"
+          echo "Container name: $container_name"
+          
+          # Restart the LXD container to simulate system reboot
+          echo "Restarting container $container_name..."
+          lxc restart "$container_name"
+          
+          # Wait for container to come back online and service to stabilize
+          echo "Waiting for service to come back online..."
+          sleep 45
+          
+          # Wait for juju agent to reconnect (check unit status)
+          timeout=120
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            status=$(juju status openclaw --format=json 2>/dev/null | jq -r '.applications.openclaw.units | to_entries[0].value["workload-status"].current' 2>/dev/null || echo "unknown")
+            if [ "$status" = "active" ]; then
+              echo "✓ Service is active after restart"
+              break
+            fi
+            echo "Waiting for service (status: $status)... $elapsed/$timeout seconds"
+            sleep 5
+            elapsed=$((elapsed + 5))
+          done
+          
+          if [ $elapsed -ge $timeout ]; then
+            echo "✗ Service did not become active after $timeout seconds"
+            juju status openclaw
+            exit 1
+          fi
+          
+          # Additional wait for openclaw.json to be regenerated
+          sleep 10
+          
+          # Verify browser config is still present in openclaw.json
+          browser_config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq '.browser')
+          enabled_after=$(echo "$browser_config" | jq -r '.enabled')
+          headless_after=$(echo "$browser_config" | jq -r '.headless')
+          profile_after=$(echo "$browser_config" | jq -r '.defaultProfile')
+          
+          echo "Browser config after restart: $browser_config"
+          
+          # Validate all browser settings persisted
+          if [ "$enabled_after" = "true" ]; then
+            echo "✓ browser.enabled=true persisted after restart"
+          else
+            echo "✗ browser.enabled not true after restart (got: $enabled_after)"
+            exit 1
+          fi
+          
+          if [ "$headless_after" = "true" ]; then
+            echo "✓ browser.headless=true persisted after restart"
+          else
+            echo "✗ browser.headless not true after restart (got: $headless_after)"
+            exit 1
+          fi
+          
+          if [ "$profile_after" = "openclaw" ]; then
+            echo "✓ browser.defaultProfile='openclaw' persisted after restart"
+          else
+            echo "✗ browser.defaultProfile incorrect after restart (got: $profile_after)"
+            exit 1
+          fi
+          
+          echo "✅ All browser settings successfully persisted after container restart"
       
       - name: Collect logs on failure
         if: failure()

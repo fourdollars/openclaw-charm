@@ -205,8 +205,6 @@ if [ "$ROLE" = "gateway" ]; then
             fi
         fi
         
-        configure_browser_settings
-        
         if validate_config; then
             status-set active "Gateway: $url"
             log_info "OpenClaw Gateway started successfully with valid configuration"

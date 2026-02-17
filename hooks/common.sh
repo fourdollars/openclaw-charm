@@ -402,7 +402,7 @@ generate_config() {
     local config_file="/home/ubuntu/.openclaw/openclaw.json"
     local temp_file="${config_file}.tmp"
     local ai_provider ai_model api_key
-    local gateway_port gateway_bind log_level dm_scope
+    local gateway_port gateway_bind log_level dm_scope use_browser
     
     ai_provider="$(config-get ai-provider)"
     ai_model="$(config-get ai-model)"
@@ -411,6 +411,7 @@ generate_config() {
     gateway_bind="$(config-get gateway-bind)"
     log_level="$(config-get log-level)"
     dm_scope="$(config-get dm-scope)"
+    use_browser="$(config-get use-browser)"
     
     log_info "Generating OpenClaw configuration using jq"
     
@@ -489,6 +490,11 @@ generate_config() {
             },
             channels: {}
         }' > "$temp_file"
+    
+    if [ -n "$use_browser" ]; then
+        jq '.browser = {enabled: true, headless: true, defaultProfile: "openclaw"}' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    fi
     
     # Add remaining models from ai-model as fallbacks
     if [ -n "$fallback_models" ]; then
@@ -974,37 +980,6 @@ restart_openclaw() {
     else
         log_error "OpenClaw Gateway service failed to restart"
         run_systemctl_user status openclaw-gateway.service || true
-        return 1
-    fi
-}
-
-configure_browser_settings() {
-    if [ "$(should_manage_config)" = "false" ]; then
-        log_info "Manual mode enabled - skipping browser configuration management"
-        return 0
-    fi
-    
-    local use_browser
-    use_browser="$(config-get use-browser)"
-    
-    local browser_enabled="false"
-    if [ -n "$use_browser" ]; then
-        browser_enabled="true"
-    fi
-    
-    log_info "Configuring browser settings via openclaw config set (enabled: $browser_enabled)"
-    
-    if sudo -u ubuntu bash -l <<EOF
-. ~/.nvm/nvm.sh
-openclaw config set browser.headless true
-openclaw config set browser.defaultProfile "openclaw"
-openclaw config set browser.enabled $browser_enabled
-EOF
-    then
-        log_info "Browser settings configured successfully"
-        return 0
-    else
-        log_error "Failed to configure browser settings"
         return 1
     fi
 }
