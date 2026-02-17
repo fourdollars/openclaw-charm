@@ -1,6 +1,7 @@
 #!/bin/bash
 
 CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
 source "$CHARM_DIR/hooks/common.sh"
 
 ROLE="$(get_unit_role)"

@@ -17,10 +17,10 @@ failed=0
 check() {
     if eval "$2"; then
         echo -e "${GREEN}✓${NC} $1"
-        ((passed++))
+        passed=$((passed+1))
     else
         echo -e "${RED}✗${NC} $1"
-        ((failed++))
+        failed=$((failed+1))
     fi
 }
 
@@ -66,7 +66,7 @@ echo "⚙️  Configuration Validation"
 check "config.yaml has options field" "grep -q '^options:' config.yaml"
 check "config.yaml has gateway-port" "grep -q 'gateway-port:' config.yaml"
 check "config.yaml has ai-provider" "grep -q 'ai-provider:' config.yaml"
-check "config.yaml has anthropic-api-key" "grep -q 'anthropic-api-key:' config.yaml"
+check "config.yaml has ai-api-key" "grep -q 'ai-api-key:' config.yaml"
 
 echo ""
 echo "🔄 Workflow Validation"
@@ -85,12 +85,12 @@ check "PR template exists" "[ -f .github/pull_request_template.md ]"
 echo ""
 echo "🔧 Shell Script Validation"
 if command -v shellcheck &> /dev/null; then
-    if shellcheck hooks/install hooks/start hooks/stop hooks/config-changed hooks/upgrade-charm hooks/common.sh 2>&1 | grep -q "No issues detected"; then
+    if shellcheck hooks/install hooks/start hooks/stop hooks/config-changed hooks/upgrade-charm hooks/common.sh > /dev/null; then
         echo -e "${GREEN}✓${NC} All hooks pass shellcheck"
-        ((passed++))
+        passed=$((passed+1))
     else
         echo -e "${RED}✗${NC} Shellcheck found issues in hooks"
-        ((failed++))
+        failed=$((failed+1))
         shellcheck hooks/* 2>&1 | head -20
     fi
 else

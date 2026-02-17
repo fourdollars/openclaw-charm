@@ -5,6 +5,7 @@ set -e
 # This hook installs all dependencies and prepares the system for OpenClaw
 
 CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
 source "$CHARM_DIR/hooks/common.sh"
 
 log_info "Starting OpenClaw installation"
