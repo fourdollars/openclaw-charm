@@ -997,7 +997,6 @@ configure_browser_settings() {
     if sudo -u ubuntu bash -l <<EOF
 . ~/.nvm/nvm.sh
 openclaw config set browser.headless true
-openclaw config set browser.noSandbox true
 openclaw config set browser.defaultProfile "openclaw"
 openclaw config set browser.enabled $browser_enabled
 EOF

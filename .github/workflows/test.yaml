@@ -714,15 +714,6 @@ jobs:
             exit 1
           fi
           
-          # Verify browser.noSandbox is true
-          noSandbox=$(echo "$browser_config" | jq -r '.noSandbox')
-          if [ "$noSandbox" = "true" ]; then
-            echo "✓ browser.noSandbox is true"
-          else
-            echo "✗ browser.noSandbox is not true (got: $noSandbox)"
-            exit 1
-          fi
-          
           # Verify browser.defaultProfile is "openclaw"
           defaultProfile=$(echo "$browser_config" | jq -r '.defaultProfile')
           if [ "$defaultProfile" = "openclaw" ]; then
