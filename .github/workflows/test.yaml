@@ -147,6 +147,10 @@ jobs:
       
       - name: Test configuration changes
         run: |
+          # Record gateway token before any config changes
+          TOKEN_BEFORE=$(juju ssh openclaw/0 'jq -r .gateway.auth.token /home/ubuntu/.openclaw/openclaw.json')
+          echo "Gateway token before config change: $TOKEN_BEFORE"
+
           # Change gateway port
           juju config openclaw gateway-port=18790
           
@@ -156,6 +160,16 @@ jobs:
           # Verify port change
           juju ssh openclaw/0 'ss -tulpn | grep 18790' || echo "Port change test (may not bind without valid key)"
           
+          # Verify gateway token is unchanged after config-changed
+          TOKEN_AFTER=$(juju ssh openclaw/0 'jq -r .gateway.auth.token /home/ubuntu/.openclaw/openclaw.json')
+          echo "Gateway token after config change: $TOKEN_AFTER"
+          if [ "$TOKEN_AFTER" = "$TOKEN_BEFORE" ]; then
+            echo "✓ Gateway token preserved across config-changed"
+          else
+            echo "✗ Gateway token changed after config-changed"
+            exit 1
+          fi
+
           # Change back
           juju config openclaw gateway-port=18789
       
@@ -217,7 +231,8 @@ jobs:
             --config ai-provider="anthropic" \
             --config ai-model="claude-sonnet-3-5" \
             --config ai-api-key="test-key" \
-            --config telegram-bot-token="123456:TEST"
+            --config telegram-bot-token="123456:TEST" \
+            --config control-ui-allowed-origins="http://192.168.1.50:18789"
       
       - name: Wait for deployment
         run: |
@@ -234,11 +249,200 @@ jobs:
             echo "✗ Channel configuration missing"
             exit 1
           fi
+
+          origins=$(jq -r '.gateway.controlUi.allowedOrigins[0]' config.json)
+          echo "allowedOrigins[0]: $origins"
+          if [ "$origins" = "http://192.168.1.50:18789" ]; then
+            echo "✓ control-ui-allowed-origins written correctly"
+          else
+            echo "✗ control-ui-allowed-origins mismatch (got: $origins)"
+            exit 1
+          fi
       
       - name: Cleanup
         if: always()
         run: |
           juju destroy-model test-channels -y --force --no-wait || true
+          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
+
+  test-config-preservation:
+    name: Test Config Preservation
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Download charm artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: openclaw-charm
+
+      - name: Set up LXD
+        uses: canonical/setup-lxd@main
+        with:
+          channel: latest/stable
+
+      - name: Install Juju
+        run: |
+          sudo snap install juju --channel=3/stable
+          sudo snap install juju-wait --classic
+
+      - name: Bootstrap Juju
+        run: |
+          lxc network set lxdbr0 ipv6.address none
+          juju bootstrap localhost test-controller
+
+      - name: Create test model
+        run: |
+          juju add-model test-config-preservation
+
+      - name: Deploy charm
+        run: |
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju deploy ./$CHARM_FILE \
+            --config ai-provider="anthropic" \
+            --config ai-model="claude-sonnet-3-5" \
+            --config ai-api-key="test-key" \
+            --config control-ui-allowed-origins="http://10.0.0.1:18789,http://10.0.0.2:18789"
+
+      - name: Wait for deployment
+        run: |
+          juju-wait -v -m test-config-preservation -t 900
+
+      - name: Verify control-ui-allowed-origins written to openclaw.json
+        run: |
+          config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
+          origins=$(echo "$config" | jq -r '.gateway.controlUi.allowedOrigins | length')
+          echo "allowedOrigins count: $origins"
+          if [ "$origins" = "2" ]; then
+            echo "✓ gateway.controlUi.allowedOrigins contains 2 entries"
+          else
+            echo "✗ Expected 2 entries, got: $origins"
+            echo "$config" | jq '.gateway.controlUi'
+            exit 1
+          fi
+          origin0=$(echo "$config" | jq -r '.gateway.controlUi.allowedOrigins[0]')
+          origin1=$(echo "$config" | jq -r '.gateway.controlUi.allowedOrigins[1]')
+          echo "Origin 0: $origin0"
+          echo "Origin 1: $origin1"
+          if [ "$origin0" = "http://10.0.0.1:18789" ] && [ "$origin1" = "http://10.0.0.2:18789" ]; then
+            echo "✓ Origins match expected values"
+          else
+            echo "✗ Origins mismatch"
+            exit 1
+          fi
+
+      - name: Record gateway token before config change
+        run: |
+          TOKEN=$(juju ssh openclaw/0 'jq -r .gateway.auth.token /home/ubuntu/.openclaw/openclaw.json')
+          echo "token_before=$TOKEN" >> "$GITHUB_ENV"
+          echo "Gateway token recorded: $TOKEN"
+
+      - name: Inject user-managed field into openclaw.json
+        run: |
+          juju ssh openclaw/0 'jq '\''.user_custom_field = "preserve-me-12345"'\'' \
+            /home/ubuntu/.openclaw/openclaw.json > /tmp/oc.tmp && \
+            mv /tmp/oc.tmp /home/ubuntu/.openclaw/openclaw.json'
+          echo "✓ Injected user_custom_field into openclaw.json"
+
+      - name: Trigger config-changed via juju config update
+        run: |
+          juju config openclaw log-level=debug
+          sleep 30
+          juju config openclaw log-level=info
+          sleep 30
+
+      - name: Verify user field and gateway token survive config-changed
+        run: |
+          config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
+
+          custom=$(echo "$config" | jq -r '.user_custom_field')
+          echo "user_custom_field after config-changed: $custom"
+          if [ "$custom" = "preserve-me-12345" ]; then
+            echo "✓ User-managed field preserved across config-changed"
+          else
+            echo "✗ User-managed field was lost (got: $custom)"
+            exit 1
+          fi
+
+          token_after=$(echo "$config" | jq -r '.gateway.auth.token')
+          echo "Gateway token after config-changed: $token_after"
+          if [ "$token_after" = "${{ env.token_before }}" ]; then
+            echo "✓ Gateway token preserved across config-changed"
+          else
+            echo "✗ Gateway token changed (before: ${{ env.token_before }}, after: $token_after)"
+            exit 1
+          fi
+
+      - name: Clear control-ui-allowed-origins and verify key removed
+        run: |
+          juju config openclaw control-ui-allowed-origins=""
+          sleep 30
+          config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
+          origins=$(echo "$config" | jq '.gateway.controlUi.allowedOrigins')
+          echo "allowedOrigins after clearing: $origins"
+          if [ "$origins" = "null" ]; then
+            echo "✓ gateway.controlUi.allowedOrigins removed when config is empty"
+          else
+            echo "✗ gateway.controlUi.allowedOrigins still present: $origins"
+            exit 1
+          fi
+
+      - name: Restart container and verify persistence
+        run: |
+          unit_machine=$(juju status openclaw --format=json | jq -r '.applications.openclaw.units | to_entries[0].value["machine"]')
+          container_name=$(juju status --format=json | jq -r --arg m "$unit_machine" '.machines[$m]["instance-id"]')
+          echo "Restarting container: $container_name"
+          lxc restart "$container_name"
+
+          sleep 45
+          timeout 120 bash -c '
+            while true; do
+              s=$(juju status openclaw --format=json 2>/dev/null | jq -r ".applications.openclaw.units | to_entries[0].value[\"workload-status\"].current" 2>/dev/null || echo "unknown")
+              echo "Status: $s"
+              [ "$s" = "active" ] && break
+              sleep 5
+            done
+          '
+          sleep 10
+
+          config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
+
+          token_restart=$(echo "$config" | jq -r '.gateway.auth.token')
+          echo "Gateway token after restart: $token_restart"
+          if [ "$token_restart" = "${{ env.token_before }}" ]; then
+            echo "✓ Gateway token preserved across container restart"
+          else
+            echo "✗ Gateway token changed after restart"
+            exit 1
+          fi
+
+          custom_restart=$(echo "$config" | jq -r '.user_custom_field')
+          echo "user_custom_field after restart: $custom_restart"
+          if [ "$custom_restart" = "preserve-me-12345" ]; then
+            echo "✓ User-managed field preserved across container restart"
+          else
+            echo "✗ User-managed field lost after restart (got: $custom_restart)"
+            exit 1
+          fi
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== Juju Status ==="
+          juju status --format=yaml
+
+          echo "=== Debug Log ==="
+          juju debug-log --replay --no-tail --limit 500
+
+          echo "=== OpenClaw Config ==="
+          juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          juju destroy-model test-config-preservation -y --force --no-wait || true
           juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
 
   test-upgrade:
