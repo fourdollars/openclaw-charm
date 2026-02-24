@@ -413,7 +413,7 @@ generate_config() {
     dm_scope="$(config-get dm-scope)"
     use_browser="$(config-get use-browser)"
     
-    log_info "Generating OpenClaw configuration using jq"
+    log_info "Updating OpenClaw configuration using jq"
     
     # Parse comma-separated models from ai-model
     local primary_model fallback_models
@@ -451,6 +451,9 @@ generate_config() {
         if [ -n "$gateway_token" ]; then
             log_info "Preserving existing gateway token"
         fi
+        cp "$config_file" "$temp_file"
+    else
+        echo '{}' > "$temp_file"
     fi
     
     if [ -z "$gateway_token" ]; then
@@ -458,43 +461,49 @@ generate_config() {
         log_info "Generated new gateway token"
     fi
     
-    echo '{}' | jq \
+    jq \
         --arg token "$gateway_token" \
         --arg bind "$gateway_bind" \
         --argjson port "$gateway_port" \
+        '.gateway.mode = "local"
+        | .gateway.auth.mode = "token"
+        | .gateway.auth.token = $token
+        | .gateway.bind = $bind
+        | .gateway.port = $port' \
+        "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    
+    local control_ui_origins
+    control_ui_origins="$(config-get control-ui-allowed-origins)"
+    if [ -n "$control_ui_origins" ]; then
+        local origins_json
+        origins_json=$(echo "$control_ui_origins" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^$' | jq -R . | jq -s .)
+        jq --argjson origins "$origins_json" \
+           '.gateway.controlUi.allowedOrigins = $origins' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    else
+        jq 'del(.gateway.controlUi.allowedOrigins)' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    fi
+    
+    jq \
         --arg model "${primary_model}" \
         --arg log_level "$log_level" \
         --arg dm_scope "$dm_scope" \
-        '{
-            gateway: {
-                mode: "local",
-                auth: {
-                    mode: "token",
-                    token: $token
-                },
-                bind: $bind,
-                port: $port
-            },
-            agents: {
-                defaults: {
-                    model: {
-                        primary: $model
-                    }
-                }
-            },
-            session: {
-                dmScope: $dm_scope
-            },
-            logging: {
-                level: $log_level
-            },
-            channels: {}
-        }' > "$temp_file"
+        '.agents.defaults.model.primary = $model
+        | .agents.defaults.model.fallbacks = []
+        | .session.dmScope = $dm_scope
+        | .logging.level = $log_level' \
+        "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     
     if [ -n "$use_browser" ]; then
         jq '.browser = {enabled: true, headless: true, defaultProfile: "openclaw"}' \
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    else
+        jq 'del(.browser)' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
+    
+    jq '.channels = {}' "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     
     # Add remaining models from ai-model as fallbacks
     if [ -n "$fallback_models" ]; then
@@ -598,6 +607,8 @@ generate_config() {
     jq '.agents.defaults.model.fallbacks |= (reduce .[] as $item ([]; if any(.[]; . == $item) then . else . + [$item] end))' \
        "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     
+    jq 'del(.models.providers)' "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    
     local base_url
     base_url="$(config-get ai-base-url)"
     
@@ -685,7 +696,7 @@ generate_config() {
     chown -R ubuntu:ubuntu /home/ubuntu/.openclaw
     chmod 700 /home/ubuntu/.openclaw
 
-    log_info "Configuration generated at $config_file"
+    log_info "Configuration updated at $config_file"
 }
 
 # Generate OpenClaw Node configuration
