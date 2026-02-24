@@ -481,7 +481,16 @@ generate_config() {
            '.gateway.controlUi.allowedOrigins = $origins' \
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     else
-        jq 'del(.gateway.controlUi.allowedOrigins)' \
+        local gateway_ip
+        if [ "$gateway_bind" = "loopback" ]; then
+            gateway_ip="127.0.0.1"
+        else
+            gateway_ip=$(unit-get private-address)
+        fi
+        local default_origin
+        default_origin="http://${gateway_ip}:${gateway_port}"
+        jq --arg origin "$default_origin" \
+           '.gateway.controlUi.allowedOrigins = [$origin]' \
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
