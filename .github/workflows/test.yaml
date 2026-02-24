@@ -375,17 +375,18 @@ jobs:
             exit 1
           fi
 
-      - name: Clear control-ui-allowed-origins and verify key removed
+      - name: Clear control-ui-allowed-origins and verify default gateway URL
         run: |
           juju config openclaw control-ui-allowed-origins=""
           sleep 30
           config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
-          origins=$(echo "$config" | jq '.gateway.controlUi.allowedOrigins')
+          origins=$(echo "$config" | jq -r '.gateway.controlUi.allowedOrigins[0]')
+          port=$(juju config openclaw gateway-port)
           echo "allowedOrigins after clearing: $origins"
-          if [ "$origins" = "null" ]; then
-            echo "✓ gateway.controlUi.allowedOrigins removed when config is empty"
+          if [ "$origins" = "http://127.0.0.1:${port}" ]; then
+            echo "✓ gateway.controlUi.allowedOrigins defaults to loopback gateway URL when config is empty"
           else
-            echo "✗ gateway.controlUi.allowedOrigins still present: $origins"
+            echo "✗ expected http://127.0.0.1:${port}, got: $origins"
             exit 1
           fi
 
@@ -1295,4 +1296,127 @@ jobs:
         if: always()
         run: |
           juju destroy-model test-manual -y --force --no-wait || true
+          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
+
+  test-default-allowed-origins:
+    name: Test Default control-ui-allowed-origins
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Download charm artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: openclaw-charm
+
+      - name: Set up LXD
+        uses: canonical/setup-lxd@main
+
+      - name: Install Juju
+        run: |
+          sudo snap install juju --channel=3/stable
+          sudo snap install juju-wait --classic
+
+      - name: Bootstrap Juju
+        run: |
+          lxc network set lxdbr0 ipv6.address none
+          juju bootstrap localhost test-controller
+
+      - name: Create test model
+        run: |
+          juju add-model test-default-origins
+
+      - name: Deploy charm without control-ui-allowed-origins
+        run: |
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju deploy ./$CHARM_FILE \
+            --config ai-provider="anthropic" \
+            --config ai-model="claude-sonnet-3-5" \
+            --config ai-api-key="test-key"
+
+      - name: Wait for deployment
+        run: |
+          juju-wait -v -m test-default-origins -t 900
+
+      - name: Verify default allowedOrigins uses loopback gateway URL
+        run: |
+          config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
+          port=$(juju config openclaw gateway-port)
+          origins=$(echo "$config" | jq -r '.gateway.controlUi.allowedOrigins[0]')
+          count=$(echo "$config" | jq '.gateway.controlUi.allowedOrigins | length')
+          echo "allowedOrigins: $origins (count: $count)"
+          if [ "$origins" = "http://127.0.0.1:${port}" ] && [ "$count" = "1" ]; then
+            echo "✓ Default allowedOrigins is loopback gateway URL (gateway-bind=loopback)"
+          else
+            echo "✗ Expected [\"http://127.0.0.1:${port}\"], got: $(echo "$config" | jq '.gateway.controlUi.allowedOrigins')"
+            exit 1
+          fi
+
+      - name: Switch to LAN bind and verify default allowedOrigins updates
+        run: |
+          juju config openclaw gateway-bind=lan
+          sleep 30
+          config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
+          unit_ip=$(juju status openclaw --format=json | jq -r '.applications.openclaw.units | to_entries[0].value["public-address"]')
+          port=$(juju config openclaw gateway-port)
+          origins=$(echo "$config" | jq -r '.gateway.controlUi.allowedOrigins[0]')
+          echo "allowedOrigins after gateway-bind=lan: $origins (unit IP: $unit_ip)"
+          if [ "$origins" = "http://${unit_ip}:${port}" ]; then
+            echo "✓ Default allowedOrigins uses unit private IP when gateway-bind=lan"
+          else
+            echo "✗ Expected http://${unit_ip}:${port}, got: $origins"
+            exit 1
+          fi
+
+      - name: Verify explicit control-ui-allowed-origins still overrides default
+        run: |
+          juju config openclaw control-ui-allowed-origins="http://192.168.99.1:18789,http://192.168.99.2:18789"
+          sleep 30
+          config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
+          count=$(echo "$config" | jq '.gateway.controlUi.allowedOrigins | length')
+          first=$(echo "$config" | jq -r '.gateway.controlUi.allowedOrigins[0]')
+          second=$(echo "$config" | jq -r '.gateway.controlUi.allowedOrigins[1]')
+          echo "allowedOrigins after explicit config: count=$count first=$first second=$second"
+          if [ "$count" = "2" ] && [ "$first" = "http://192.168.99.1:18789" ] && [ "$second" = "http://192.168.99.2:18789" ]; then
+            echo "✓ Explicit control-ui-allowed-origins overrides default correctly"
+          else
+            echo "✗ Explicit override failed: $(echo "$config" | jq '.gateway.controlUi.allowedOrigins')"
+            exit 1
+          fi
+
+      - name: Clear explicit config and verify default is restored
+        run: |
+          juju config openclaw control-ui-allowed-origins=""
+          sleep 30
+          config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
+          unit_ip=$(juju status openclaw --format=json | jq -r '.applications.openclaw.units | to_entries[0].value["public-address"]')
+          port=$(juju config openclaw gateway-port)
+          origins=$(echo "$config" | jq -r '.gateway.controlUi.allowedOrigins[0]')
+          count=$(echo "$config" | jq '.gateway.controlUi.allowedOrigins | length')
+          echo "allowedOrigins after clearing explicit config: $origins (count: $count)"
+          if [ "$origins" = "http://${unit_ip}:${port}" ] && [ "$count" = "1" ]; then
+            echo "✓ Default gateway URL restored after clearing explicit control-ui-allowed-origins"
+          else
+            echo "✗ Expected [\"http://${unit_ip}:${port}\"], got: $(echo "$config" | jq '.gateway.controlUi.allowedOrigins')"
+            exit 1
+          fi
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== Juju Status ==="
+          juju status --format=yaml
+
+          echo "=== Debug Log ==="
+          juju debug-log --replay --no-tail --limit 500
+
+          echo "=== Unit Config ==="
+          juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json 2>/dev/null' || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          juju destroy-model test-default-origins -y --force --no-wait || true
           juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
