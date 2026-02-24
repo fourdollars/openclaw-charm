@@ -76,51 +76,58 @@ if [ "$ROLE" = "gateway" ]; then
     fi
     
     if [ "$(config-get auto-update)" = "True" ]; then
-        log_info "Auto-update enabled - checking for updates"
-        OPENCLAW_VERSION="$(config-get version)"
-        
-        npm_package="openclaw"
-        if [ -n "$OPENCLAW_VERSION" ] && [ "$OPENCLAW_VERSION" != "latest" ]; then
-            npm_package="openclaw@${OPENCLAW_VERSION}"
+        # Check if upgrade-charm already performed the auto-update in this hook cycle.
+        # If so, skip to avoid a redundant (and time-consuming) npm install.
+        if [ -f /home/ubuntu/.openclaw/.charm-upgrade-ran-auto-update ]; then
+            log_info "Auto-update already performed by upgrade-charm hook - skipping redundant install"
+            rm -f /home/ubuntu/.openclaw/.charm-upgrade-ran-auto-update
+        else
+            log_info "Auto-update enabled - checking for updates"
+            OPENCLAW_VERSION="$(config-get version)"
+            
+            npm_package="openclaw"
+            if [ -n "$OPENCLAW_VERSION" ] && [ "$OPENCLAW_VERSION" != "latest" ]; then
+                npm_package="openclaw@${OPENCLAW_VERSION}"
+            fi
+            
+            case "$INSTALL_METHOD" in
+                npm|pnpm)
+                    sudo -u ubuntu bash -l -c "
+                        export NVM_DIR=\"/home/ubuntu/.nvm\"
+                        [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                        nvm use $(config-get node-version)
+                        npm install -g ${npm_package}
+                    "
+                    update_openclaw_symlink
+                    ;;
+                bun)
+                    bun_package="openclaw"
+                    if [ -n "$OPENCLAW_VERSION" ] && [ "$OPENCLAW_VERSION" != "latest" ]; then
+                        bun_package="openclaw@${OPENCLAW_VERSION}"
+                    fi
+                    sudo -u ubuntu bash -l -c "bun install -g ${bun_package}"
+                    update_openclaw_symlink
+                    ;;
+                source)
+                    sudo -u ubuntu bash -l -c "
+                        export NVM_DIR=\"/home/ubuntu/.nvm\"
+                        [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                        nvm use $(config-get node-version)
+                        cd /home/ubuntu/openclaw && git fetch && git checkout ${OPENCLAW_VERSION} && pnpm install && pnpm build
+                    "
+                    update_openclaw_symlink
+                    ;;
+            esac
+            
+            INSTALLED_VERSION=$(sudo -u ubuntu bash -l -c "
+                export NVM_DIR=\"/home/ubuntu/.nvm\"
+                [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                export BUN_INSTALL=\"/home/ubuntu/.bun\"
+                [ -d \"\$BUN_INSTALL/bin\" ] && export PATH=\"\$BUN_INSTALL/bin:\$PATH\"
+                timeout 5 openclaw --version 2>/dev/null
+            " || echo "unknown")
+            log_info "OpenClaw updated to version $INSTALLED_VERSION"
         fi
-        
-        case "$INSTALL_METHOD" in
-            npm|pnpm)
-                sudo -u ubuntu bash -l -c "
-                    export NVM_DIR=\"/home/ubuntu/.nvm\"
-                    [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
-                    nvm use $(config-get node-version)
-                    npm install -g ${npm_package}
-                "
-                update_openclaw_symlink
-                ;;
-            bun)
-                bun_package="openclaw"
-                if [ -n "$OPENCLAW_VERSION" ] && [ "$OPENCLAW_VERSION" != "latest" ]; then
-                    bun_package="openclaw@${OPENCLAW_VERSION}"
-                fi
-                sudo -u ubuntu bash -l -c "bun install -g ${bun_package}"
-                update_openclaw_symlink
-                ;;
-            source)
-                sudo -u ubuntu bash -l -c "
-                    export NVM_DIR=\"/home/ubuntu/.nvm\"
-                    [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
-                    nvm use $(config-get node-version)
-                    cd /home/ubuntu/openclaw && git fetch && git checkout ${OPENCLAW_VERSION} && pnpm install && pnpm build
-                "
-                update_openclaw_symlink
-                ;;
-        esac
-        
-        INSTALLED_VERSION=$(sudo -u ubuntu bash -l -c "
-            export NVM_DIR=\"/home/ubuntu/.nvm\"
-            [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
-            export BUN_INSTALL=\"/home/ubuntu/.bun\"
-            [ -d \"\$BUN_INSTALL/bin\" ] && export PATH=\"\$BUN_INSTALL/bin:\$PATH\"
-            timeout 5 openclaw --version 2>/dev/null
-        " || echo "unknown")
-        log_info "OpenClaw updated to version $INSTALLED_VERSION"
     fi
     
     generate_config

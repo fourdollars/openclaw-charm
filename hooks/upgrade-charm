@@ -98,6 +98,12 @@ if [ "$(config-get auto-update)" = "True" ]; then
     
     status-set maintenance "Updating OpenClaw"
     
+    # Set a flag so that the subsequent config-changed hook (automatically triggered
+    # by Juju after upgrade-charm) knows the update was already performed here and
+    # can skip the redundant npm install.
+    mkdir -p /home/ubuntu/.openclaw
+    touch /home/ubuntu/.openclaw/.charm-upgrade-ran-auto-update
+    
     case "$INSTALL_METHOD" in
         npm|pnpm)
             npm_package="openclaw"

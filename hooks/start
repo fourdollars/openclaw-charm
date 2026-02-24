@@ -51,9 +51,12 @@ if [ "$(should_manage_config)" = "false" ]; then
             status-set active "Manual mode - Gateway: $url"
             log_info "Manual mode: Gateway started at $url"
         else
-            status-set blocked "Failed to start Gateway service"
-            log_error "Manual mode: Failed to start Gateway"
-            exit 1
+            # In manual mode, the Gateway service failing to start is expected
+            # when no openclaw.json exists yet (user must provide their own config).
+            # Do NOT exit 1 here — set blocked and exit 0 so the unit stays manageable.
+            status-set blocked "Manual mode - waiting for user configuration"
+            log_info "Manual mode: Gateway not started (no config yet - user must provide openclaw.json)"
+            exit 0
         fi
         exit 0
     else
