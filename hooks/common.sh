@@ -1303,6 +1303,106 @@ update_openclaw_symlink() {
     esac
 }
 
+get_latest_openclaw_version() {
+    local latest
+    latest=$(curl -sf --max-time 10 https://registry.npmjs.org/openclaw/latest 2>/dev/null \
+             | python3 -c "import sys,json; print(json.load(sys.stdin).get('version',''))" 2>/dev/null || true)
+    echo "$latest"
+}
+
+get_installed_openclaw_version() {
+    sudo -u ubuntu bash -l -c "
+        export NVM_DIR=\"/home/ubuntu/.nvm\"
+        [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+        export BUN_INSTALL=\"/home/ubuntu/.bun\"
+        [ -d \"\$BUN_INSTALL/bin\" ] && export PATH=\"\$BUN_INSTALL/bin:\$PATH\"
+        timeout 5 openclaw --version 2>/dev/null | tail -1
+    " 2>/dev/null || true
+}
+
+# Rate-limited to once per 24 h (via timestamp file) so frequent update-status
+# calls don't hammer npm. Returns 0 if an update was installed, 1 otherwise.
+check_and_update_openclaw() {
+    local stamp_file="/home/ubuntu/.openclaw/.last-update-check"
+    local now interval elapsed
+
+    now=$(date +%s)
+    interval=86400
+
+    if [ -f "$stamp_file" ]; then
+        local last_check
+        last_check=$(tr -cd '0-9' < "$stamp_file" 2>/dev/null || echo "0")
+        elapsed=$(( now - last_check ))
+        if [ "$elapsed" -lt "$interval" ]; then
+            log_debug "Last update check was ${elapsed}s ago - skipping (interval ${interval}s)"
+            return 1
+        fi
+    fi
+
+    # Write timestamp before the network call so a transient failure still
+    # advances the clock and prevents a retry storm on the next hook run.
+    mkdir -p /home/ubuntu/.openclaw
+    echo "$now" > "$stamp_file"
+    chown ubuntu:ubuntu "$stamp_file"
+
+    log_info "Checking upstream for latest openclaw version"
+    local latest_version
+    latest_version=$(get_latest_openclaw_version)
+
+    if [ -z "$latest_version" ]; then
+        log_warn "Could not retrieve latest openclaw version from npm registry"
+        return 1
+    fi
+
+    local installed_version
+    installed_version=$(get_installed_openclaw_version)
+
+    log_info "Installed openclaw version: '${installed_version}', latest: '${latest_version}'"
+
+    if [ "$installed_version" = "$latest_version" ]; then
+        log_info "openclaw is already at the latest version (${latest_version})"
+        return 1
+    fi
+
+    log_info "New openclaw version available: ${latest_version} (installed: ${installed_version}) - upgrading"
+
+    local install_method
+    install_method="$(config-get install-method)"
+
+    case "$install_method" in
+        npm|pnpm)
+            sudo -u ubuntu bash -l -c "
+                export NVM_DIR=\"/home/ubuntu/.nvm\"
+                [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                nvm use $(config-get node-version)
+                npm install -g openclaw@latest
+            "
+            ;;
+        bun)
+            sudo -u ubuntu bash -l -c "bun install -g openclaw@latest"
+            ;;
+        source)
+            sudo -u ubuntu bash -l -c "
+                export NVM_DIR=\"/home/ubuntu/.nvm\"
+                [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                nvm use $(config-get node-version)
+                cd /home/ubuntu/openclaw && git fetch && git checkout main && git pull && pnpm install && pnpm build
+            "
+            ;;
+        *)
+            log_warn "Unknown install method '$install_method' - skipping auto-update"
+            return 1
+            ;;
+    esac
+    
+    update_openclaw_symlink
+
+    local new_version
+    new_version=$(get_installed_openclaw_version)
+    log_info "openclaw updated to version: ${new_version}"
+    return 0
+}
+
 # Run command as ubuntu user with appropriate runtime environment (nvm or bun)
 run_as_user() {
     local cmd="$1"
