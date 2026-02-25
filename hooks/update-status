@@ -29,7 +29,17 @@ if [ "$ROLE" = "gateway" ]; then
                 log_info "Auto-approved pending node devices"
             fi
         fi
-        
+
+        if [ "$(config-get auto-update)" = "True" ]; then
+            _version="$(config-get version)"
+            if [ -z "$_version" ] || [ "$_version" = "latest" ]; then
+                if check_and_update_openclaw; then
+                    log_info "openclaw updated - restarting gateway service"
+                    restart_openclaw || true
+                fi
+            fi
+        fi
+
         # Check if manual mode is enabled
         if [ "$(should_manage_config)" = "false" ]; then
             status-set active "Gateway: $url (manual mode)"
