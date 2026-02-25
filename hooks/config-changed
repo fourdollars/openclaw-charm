@@ -70,8 +70,21 @@ if [ "$ROLE" = "gateway" ]; then
         CONFIGURED_NODE_VERSION=$(config-get node-version)
         
         if [ "$CURRENT_NODE_VERSION" != "$CONFIGURED_NODE_VERSION" ]; then
-            log_info "Node.js version changed - reinstalling"
+            log_info "Node.js version changed - reinstalling Node.js and openclaw"
             install_nodejs
+            OPENCLAW_VER="$(config-get version)"
+            if [ -z "$OPENCLAW_VER" ] || [ "$OPENCLAW_VER" = "latest" ]; then
+                OPENCLAW_INSTALL_TARGET="openclaw"
+            else
+                OPENCLAW_INSTALL_TARGET="openclaw@${OPENCLAW_VER}"
+            fi
+            sudo -u ubuntu bash -l -c "
+                export NVM_DIR=\"/home/ubuntu/.nvm\"
+                [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                nvm use ${CONFIGURED_NODE_VERSION}
+                npm install -g ${OPENCLAW_INSTALL_TARGET}
+            "
+            update_openclaw_symlink
         fi
     fi
 

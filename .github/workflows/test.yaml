@@ -1396,7 +1396,9 @@ jobs:
         run: |
           juju ssh openclaw/0 'sudo bash -c "echo 0 > /home/ubuntu/.openclaw/.last-update-check && chown ubuntu:ubuntu /home/ubuntu/.openclaw/.last-update-check"'
 
-          juju run openclaw/0 update-status || true
+          juju model-config update-status-hook-interval=10s
+          sleep 30
+          juju model-config update-status-hook-interval=5m
           sleep 30
 
           stamp=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/.last-update-check 2>/dev/null || echo "missing"' | tr -d '\r\n')
