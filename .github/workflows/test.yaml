@@ -1298,6 +1298,252 @@ jobs:
           juju destroy-model test-manual -y --force --no-wait || true
           juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
 
+  test-version-config:
+    name: Test Version Config
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Download charm artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: openclaw-charm
+
+      - name: Set up LXD
+        uses: canonical/setup-lxd@main
+        with:
+          channel: latest/stable
+
+      - name: Install Juju
+        run: |
+          sudo snap install juju --channel=3/stable
+          sudo snap install juju-wait --classic
+
+      - name: Bootstrap Juju
+        run: |
+          lxc network set lxdbr0 ipv6.address none
+          juju bootstrap localhost test-controller
+
+      - name: Create test model
+        run: |
+          juju add-model test-version-config
+
+      - name: Deploy with pinned version
+        run: |
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju deploy ./$CHARM_FILE \
+            --config install-method=npm \
+            --config ai-provider="anthropic" \
+            --config ai-model="claude-sonnet-3-5" \
+            --config ai-api-key="test-key" \
+            --config version="2026.2.6-3"
+
+      - name: Wait for deployment
+        run: |
+          juju-wait -v -m test-version-config -t 900
+
+      - name: Verify pinned version installed
+        run: |
+          installed=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && openclaw --version 2>&1 | tail -1"' || echo "unknown")
+          echo "Installed OpenClaw version: $installed"
+          if [ "$installed" = "2026.2.6-3" ]; then
+            echo "✓ Pinned version 2026.2.6-3 installed correctly"
+          else
+            echo "✗ Expected 2026.2.6-3, got: $installed"
+            exit 1
+          fi
+
+      - name: Switch to a different pinned version
+        run: |
+          juju config openclaw version=2026.2.24
+
+      - name: Wait for pinned version reinstall to complete
+        run: |
+          juju-wait -v -m test-version-config -t 300
+
+      - name: Verify new pinned version installed after config change
+        run: |
+          installed=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && openclaw --version 2>&1 | tail -1"' || echo "unknown")
+          echo "Installed OpenClaw version: $installed"
+          if [ "$installed" = "2026.2.24" ]; then
+            echo "✓ Pinned version 2026.2.24 installed correctly after config change"
+          else
+            echo "✗ Expected 2026.2.24, got: $installed"
+            exit 1
+          fi
+
+      - name: Switch to version=latest with auto-update=true
+        run: |
+          juju config openclaw version=latest auto-update=true
+
+      - name: Wait for latest install to complete
+        run: |
+          juju-wait -v -m test-version-config -t 300
+
+      - name: Verify latest version is installed
+        run: |
+          installed=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && openclaw --version 2>&1 | tail -1"' || echo "unknown")
+          echo "Installed OpenClaw version: $installed"
+          if [ -z "$installed" ] || [ "$installed" = "unknown" ]; then
+            echo "✗ Could not determine installed version after switching to latest"
+            exit 1
+          fi
+          echo "✓ version=latest installed: $installed"
+
+      - name: Simulate daily auto-update check via update-status hook
+        run: |
+          juju ssh openclaw/0 'sudo bash -c "echo 0 > /home/ubuntu/.openclaw/.last-update-check && chown ubuntu:ubuntu /home/ubuntu/.openclaw/.last-update-check"'
+
+          juju run openclaw/0 update-status || true
+          sleep 30
+
+          stamp=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/.last-update-check 2>/dev/null || echo "missing"' | tr -d '\r\n')
+          echo "Timestamp file contents after update-status: $stamp"
+          now=$(date +%s)
+          if [ "$stamp" = "missing" ] || [ "$stamp" = "0" ]; then
+            echo "✗ Timestamp file was not updated by update-status hook"
+            exit 1
+          fi
+          age=$(( now - stamp ))
+          if [ "$age" -gt 120 ]; then
+            echo "✗ Timestamp too old (${age}s) - check_and_update_openclaw may not have run"
+            exit 1
+          fi
+          echo "✓ Daily auto-update check ran (timestamp updated ${age}s ago)"
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== Juju Status ==="
+          juju status --format=yaml
+
+          echo "=== Debug Log ==="
+          juju debug-log --replay --no-tail --limit 500
+
+          echo "=== OpenClaw version ==="
+          juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && openclaw --version"' || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          juju destroy-model test-version-config -y --force --no-wait || true
+          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
+
+  test-node-version-config:
+    name: Test Node Version Config
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Download charm artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: openclaw-charm
+
+      - name: Set up LXD
+        uses: canonical/setup-lxd@main
+        with:
+          channel: latest/stable
+
+      - name: Install Juju
+        run: |
+          sudo snap install juju --channel=3/stable
+          sudo snap install juju-wait --classic
+
+      - name: Bootstrap Juju
+        run: |
+          lxc network set lxdbr0 ipv6.address none
+          juju bootstrap localhost test-controller
+
+      - name: Create test model
+        run: |
+          juju add-model test-node-version-config
+
+      - name: Deploy with node-version=22
+        run: |
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju deploy ./$CHARM_FILE \
+            --config install-method=npm \
+            --config ai-provider="anthropic" \
+            --config ai-model="claude-sonnet-3-5" \
+            --config ai-api-key="test-key" \
+            --config node-version="22"
+
+      - name: Wait for deployment
+        run: |
+          juju-wait -v -m test-node-version-config -t 900
+
+      - name: Verify Node.js v22 is active
+        run: |
+          node_ver=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm version default"' | tr -d '\r\n')
+          echo "Active Node.js version: $node_ver"
+          if echo "$node_ver" | grep -q "^v22\."; then
+            echo "✓ Node.js v22 is the nvm default"
+          else
+            echo "✗ Expected v22.x, got: $node_ver"
+            exit 1
+          fi
+          symlink=$(juju ssh openclaw/0 'ls -l /usr/local/bin/openclaw')
+          echo "openclaw symlink: $symlink"
+          if echo "$symlink" | grep -q "v22\."; then
+            echo "✓ openclaw symlink points to Node.js v22"
+          else
+            echo "✗ openclaw symlink does not point to v22"
+            exit 1
+          fi
+
+      - name: Switch to node-version=24
+        run: |
+          juju config openclaw node-version=24
+
+      - name: Wait for node-version change to complete
+        run: |
+          juju-wait -v -m test-node-version-config -t 300
+
+      - name: Verify Node.js v24 is active after switch
+        run: |
+          node_ver=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm version default"' | tr -d '\r\n')
+          echo "Active Node.js version: $node_ver"
+          if echo "$node_ver" | grep -q "^v24\."; then
+            echo "✓ Node.js v24 is the nvm default after node-version change"
+          else
+            echo "✗ Expected v24.x, got: $node_ver"
+            exit 1
+          fi
+          symlink=$(juju ssh openclaw/0 'ls -l /usr/local/bin/openclaw')
+          echo "openclaw symlink: $symlink"
+          if echo "$symlink" | grep -q "v24\."; then
+            echo "✓ openclaw symlink points to Node.js v24"
+          else
+            echo "✗ openclaw symlink does not point to v24"
+            exit 1
+          fi
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== Juju Status ==="
+          juju status --format=yaml
+
+          echo "=== Debug Log ==="
+          juju debug-log --replay --no-tail --limit 500
+
+          echo "=== Node.js Versions ==="
+          juju ssh openclaw/0 'ls -la /home/ubuntu/.nvm/versions/node/' || true
+
+          echo "=== openclaw symlink ==="
+          juju ssh openclaw/0 'ls -l /usr/local/bin/openclaw' || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          juju destroy-model test-node-version-config -y --force --no-wait || true
+          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
+
   test-default-allowed-origins:
     name: Test Default control-ui-allowed-origins
     runs-on: ubuntu-24.04
