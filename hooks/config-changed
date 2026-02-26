@@ -65,107 +65,111 @@ if [ "$ROLE" = "gateway" ]; then
     fi
     
     INSTALL_METHOD="$(config-get install-method)"
+    OPENCLAW_VERSION="$(config-get version)"
+    INSTALLED_VERSION_FILE="/home/ubuntu/.openclaw/.installed-version"
+    LAST_INSTALLED_VERSION=$(cat "$INSTALLED_VERSION_FILE" 2>/dev/null || echo "")
+    
+    NEEDS_OPENCLAW_INSTALL="false"
+    INSTALL_TARGET="openclaw@latest"
+    INSTALL_REASON=""
+    NODE_VERSION_CHANGED="false"
+
     if [ "$INSTALL_METHOD" != "bun" ]; then
         CURRENT_NODE_VERSION=$(sudo -u ubuntu bash -l -c 'export NVM_DIR="/home/ubuntu/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; node --version 2>/dev/null' | tail -n 1 | cut -d'.' -f1 | sed 's/v//')
         CURRENT_NODE_VERSION="${CURRENT_NODE_VERSION:-0}"
         CONFIGURED_NODE_VERSION=$(config-get node-version)
         
         if [ "$CURRENT_NODE_VERSION" != "$CONFIGURED_NODE_VERSION" ]; then
-            log_info "Node.js version changed - reinstalling Node.js and openclaw"
+            log_info "Node.js version changed ($CURRENT_NODE_VERSION -> $CONFIGURED_NODE_VERSION) - reinstalling Node.js"
             install_nodejs
-            OPENCLAW_VER="$(config-get version)"
-            if [ -z "$OPENCLAW_VER" ] || [ "$OPENCLAW_VER" = "latest" ]; then
-                OPENCLAW_INSTALL_TARGET="openclaw"
-            else
-                OPENCLAW_INSTALL_TARGET="openclaw@${OPENCLAW_VER}"
-            fi
-            sudo -u ubuntu bash -l -c "
-                export NVM_DIR=\"/home/ubuntu/.nvm\"
-                [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
-                nvm use ${CONFIGURED_NODE_VERSION}
-                npm install -g ${OPENCLAW_INSTALL_TARGET}
-            "
-            update_openclaw_symlink
+            NEEDS_OPENCLAW_INSTALL="true"
+            INSTALL_REASON="Node.js version changed"
+            NODE_VERSION_CHANGED="true"
         fi
     fi
 
-    OPENCLAW_VERSION="$(config-get version)"
-    INSTALLED_VERSION_FILE="/home/ubuntu/.openclaw/.installed-version"
-    LAST_INSTALLED_VERSION=$(cat "$INSTALLED_VERSION_FILE" 2>/dev/null || echo "")
+    if [ -n "$OPENCLAW_VERSION" ] && [ "$OPENCLAW_VERSION" != "latest" ]; then
+        INSTALL_TARGET="openclaw@${OPENCLAW_VERSION}"
+        if [ "$OPENCLAW_VERSION" != "$LAST_INSTALLED_VERSION" ]; then
+            NEEDS_OPENCLAW_INSTALL="true"
+            if [ -z "$INSTALL_REASON" ]; then
+                INSTALL_REASON="version config changed to '${OPENCLAW_VERSION}' (was '${LAST_INSTALLED_VERSION}')"
+            else
+                INSTALL_REASON="${INSTALL_REASON} and version config changed"
+            fi
+        fi
+    elif [ "$(config-get auto-update)" = "True" ]; then
+        if [ -f /home/ubuntu/.openclaw/.charm-upgrade-ran-auto-update ]; then
+            log_info "Auto-update already performed by upgrade-charm hook - skipping redundant install"
+            rm -f /home/ubuntu/.openclaw/.charm-upgrade-ran-auto-update
+        else
+            LATEST_VER=$(get_latest_openclaw_version)
+            INSTALLED_VER=$(get_installed_openclaw_version)
+            
+            if [ "$LATEST_VER" != "" ] && [ "$LATEST_VER" != "$INSTALLED_VER" ]; then
+                NEEDS_OPENCLAW_INSTALL="true"
+                if [ -z "$INSTALL_REASON" ]; then
+                    INSTALL_REASON="auto-update enabled and new version available ($INSTALLED_VER -> $LATEST_VER)"
+                else
+                    INSTALL_REASON="${INSTALL_REASON} and new version available ($LATEST_VER)"
+                fi
+            elif [ "$NEEDS_OPENCLAW_INSTALL" != "true" ]; then
+                log_info "Auto-update enabled but already at latest version (${INSTALLED_VER:-unknown}) - skipping redundant install"
+            fi
+        fi
+    fi
 
-    if [ -n "$OPENCLAW_VERSION" ] && [ "$OPENCLAW_VERSION" != "latest" ] && [ "$OPENCLAW_VERSION" != "$LAST_INSTALLED_VERSION" ]; then
-        log_info "version config changed to '${OPENCLAW_VERSION}' (was '${LAST_INSTALLED_VERSION}') - reinstalling"
+    if [ "$NEEDS_OPENCLAW_INSTALL" = "true" ]; then
+        log_info "Reinstalling openclaw: $INSTALL_REASON"
         case "$INSTALL_METHOD" in
             npm|pnpm)
                 sudo -u ubuntu bash -l -c "
                     export NVM_DIR=\"/home/ubuntu/.nvm\"
                     [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
                     nvm use $(config-get node-version)
-                    npm install -g openclaw@${OPENCLAW_VERSION}
+                    npm install -g ${INSTALL_TARGET}
                 "
                 update_openclaw_symlink
                 ;;
             bun)
-                sudo -u ubuntu bash -l -c "bun install -g openclaw@${OPENCLAW_VERSION}"
+                sudo -u ubuntu bash -l -c "bun install -g ${INSTALL_TARGET}"
                 update_openclaw_symlink
                 ;;
             source)
-                sudo -u ubuntu bash -l -c "
-                    export NVM_DIR=\"/home/ubuntu/.nvm\"
-                    [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
-                    nvm use $(config-get node-version)
-                    cd /home/ubuntu/openclaw && git fetch && git checkout ${OPENCLAW_VERSION} && pnpm install && pnpm build
-                "
+                source_target="main"
+                if [ -n "$OPENCLAW_VERSION" ] && [ "$OPENCLAW_VERSION" != "latest" ]; then
+                    source_target="$OPENCLAW_VERSION"
+                fi
+                # If node version changed but no version update, just re-build on new node
+                if [ "$NODE_VERSION_CHANGED" = "true" ] && [ "$INSTALL_REASON" = "Node.js version changed" ]; then
+                    sudo -u ubuntu bash -l -c "
+                        export NVM_DIR=\"/home/ubuntu/.nvm\"
+                        [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                        nvm use $(config-get node-version)
+                        cd /home/ubuntu/openclaw && pnpm install && pnpm build
+                    "
+                else
+                    sudo -u ubuntu bash -l -c "
+                        export NVM_DIR=\"/home/ubuntu/.nvm\"
+                        [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                        nvm use $(config-get node-version)
+                        cd /home/ubuntu/openclaw && git fetch && git checkout ${source_target} && git pull && pnpm install && pnpm build
+                    "
+                fi
                 update_openclaw_symlink
                 ;;
         esac
+        
         mkdir -p /home/ubuntu/.openclaw
-        echo "$OPENCLAW_VERSION" > "$INSTALLED_VERSION_FILE"
+        if [ -n "$OPENCLAW_VERSION" ] && [ "$OPENCLAW_VERSION" != "latest" ]; then
+            echo "$OPENCLAW_VERSION" > "$INSTALLED_VERSION_FILE"
+        else
+            echo "latest" > "$INSTALLED_VERSION_FILE"
+        fi
         chown ubuntu:ubuntu "$INSTALLED_VERSION_FILE"
+        
         NEW_INSTALLED=$(get_installed_openclaw_version)
         log_info "openclaw reinstalled to version: ${NEW_INSTALLED}"
-    fi
-
-    if [ "$(config-get auto-update)" = "True" ]; then
-        # Check if upgrade-charm already performed the auto-update in this hook cycle.
-        # If so, skip to avoid a redundant (and time-consuming) npm install.
-        if [ -f /home/ubuntu/.openclaw/.charm-upgrade-ran-auto-update ]; then
-            log_info "Auto-update already performed by upgrade-charm hook - skipping redundant install"
-            rm -f /home/ubuntu/.openclaw/.charm-upgrade-ran-auto-update
-        else
-            _au_version="$(config-get version)"
-            if [ -n "$_au_version" ] && [ "$_au_version" != "latest" ]; then
-                log_info "Auto-update skipped - pinned version '${_au_version}' already handled"
-            else
-                log_info "Auto-update enabled - installing latest openclaw"
-                case "$INSTALL_METHOD" in
-                    npm|pnpm)
-                        sudo -u ubuntu bash -l -c "
-                            export NVM_DIR=\"/home/ubuntu/.nvm\"
-                            [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
-                            nvm use $(config-get node-version)
-                            npm install -g openclaw@latest
-                        "
-                        update_openclaw_symlink
-                        ;;
-                    bun)
-                        sudo -u ubuntu bash -l -c "bun install -g openclaw@latest"
-                        update_openclaw_symlink
-                        ;;
-                    source)
-                        sudo -u ubuntu bash -l -c "
-                            export NVM_DIR=\"/home/ubuntu/.nvm\"
-                            [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
-                            nvm use $(config-get node-version)
-                            cd /home/ubuntu/openclaw && git fetch && git checkout main && git pull && pnpm install && pnpm build
-                        "
-                        update_openclaw_symlink
-                        ;;
-                esac
-                AU_INSTALLED=$(get_installed_openclaw_version)
-                log_info "openclaw auto-updated to version: ${AU_INSTALLED}"
-            fi
-        fi
     fi
 
     generate_config
