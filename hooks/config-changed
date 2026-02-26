@@ -66,7 +66,8 @@ if [ "$ROLE" = "gateway" ]; then
     
     INSTALL_METHOD="$(config-get install-method)"
     if [ "$INSTALL_METHOD" != "bun" ]; then
-        CURRENT_NODE_VERSION=$(node --version 2>/dev/null | cut -d'.' -f1 | sed 's/v//' || echo "0")
+        CURRENT_NODE_VERSION=$(sudo -u ubuntu bash -l -c 'export NVM_DIR="/home/ubuntu/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; node --version 2>/dev/null' | tail -n 1 | cut -d'.' -f1 | sed 's/v//')
+        CURRENT_NODE_VERSION="${CURRENT_NODE_VERSION:-0}"
         CONFIGURED_NODE_VERSION=$(config-get node-version)
         
         if [ "$CURRENT_NODE_VERSION" != "$CONFIGURED_NODE_VERSION" ]; then
