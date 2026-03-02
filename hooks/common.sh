@@ -500,6 +500,8 @@ generate_config() {
         --arg dm_scope "$dm_scope" \
         '.agents.defaults.model.primary = $model
         | .agents.defaults.model.fallbacks = []
+        | .agents.defaults.models = {}
+        | .agents.defaults.models[$model] = {}
         | .session.dmScope = $dm_scope
         | .logging.level = $log_level' \
         "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
@@ -528,7 +530,8 @@ generate_config() {
                 fi
                 log_info "Adding fallback model from ai-model: ${full_model}"
                 jq --arg model "${full_model}" \
-                   '.agents.defaults.model.fallbacks += [$model]' \
+                   '.agents.defaults.model.fallbacks += [$model]
+                   | .agents.defaults.models[$model] = {}' \
                    "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
             fi
         done
@@ -591,7 +594,8 @@ generate_config() {
                         fi
                         log_info "Adding AI model from slot $i as fallback: ${full_model}"
                         jq --arg model "${full_model}" \
-                           '.agents.defaults.model.fallbacks += [$model]' \
+                           '.agents.defaults.model.fallbacks += [$model]
+                           | .agents.defaults.models[$model] = {}' \
                            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
                     fi
                 done
@@ -605,7 +609,8 @@ generate_config() {
                 fi
                 log_info "Adding AI model slot $i as fallback: ${full_model}"
                 jq --arg model "${full_model}" \
-                   '.agents.defaults.model.fallbacks += [$model]' \
+                   '.agents.defaults.model.fallbacks += [$model]
+                   | .agents.defaults.models[$model] = {}' \
                    "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
             fi
         fi

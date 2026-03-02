@@ -250,6 +250,23 @@ jobs:
             exit 1
           fi
 
+          # Verify AI model configuration
+          PRIMARY_MODEL=$(jq -r '.agents.defaults.model.primary' config.json)
+          if [ "$PRIMARY_MODEL" = "claude-sonnet-3-5" ]; then
+            echo "✓ Primary model configuration verified"
+          else
+            echo "✗ Primary model configuration mismatch (got: $PRIMARY_MODEL)"
+            exit 1
+          fi
+          
+          MODEL_CONFIG=$(jq -c '.agents.defaults.models["claude-sonnet-3-5"]' config.json)
+          if [ "$MODEL_CONFIG" = "{}" ]; then
+            echo "✓ Model dictionary configuration verified"
+          else
+            echo "✗ Model dictionary configuration mismatch (got: $MODEL_CONFIG)"
+            exit 1
+          fi
+
           origins=$(jq -r '.gateway.controlUi.allowedOrigins[0]' config.json)
           echo "allowedOrigins[0]: $origins"
           if [ "$origins" = "http://192.168.1.50:18789" ]; then
@@ -264,6 +281,110 @@ jobs:
         run: |
           juju destroy-model test-channels -y --force --no-wait || true
           juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
+
+  test-multi-model-config:
+    name: Test Multi-Model Configuration
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Download charm artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: openclaw-charm
+      
+      - name: Set up LXD
+        uses: canonical/setup-lxd@main
+      
+      - name: Install Juju
+        run: |
+          sudo snap install juju --channel=3/stable
+          sudo snap install juju-wait --classic
+      
+      - name: Bootstrap Juju
+        run: |
+          lxc network set lxdbr0 ipv6.address none
+          juju bootstrap localhost test-controller
+      
+      - name: Create test model
+        run: |
+          juju add-model test-models
+      
+      - name: Deploy with multi-model config
+        run: |
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju deploy ./$CHARM_FILE \
+            --config ai-provider="anthropic" \
+            --config ai-model="claude-sonnet-3-5,claude-opus-4-5" \
+            --config ai-api-key="test-key-1" \
+            --config ai0-provider="openai" \
+            --config ai0-model="gpt-4o,gpt-4-turbo" \
+            --config ai0-api-key="test-key-2" \
+            --config ai1-provider="google" \
+            --config ai1-model="gemini-2.5-flash" \
+            --config ai1-api-key="test-key-3"
+      
+      - name: Wait for deployment
+        run: |
+          juju-wait -v -m test-models -t 900
+      
+      - name: Verify multi-model configuration
+        run: |
+          juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' > config.json
+          
+          # Verify AI model primary
+          PRIMARY_MODEL=$(jq -r ".agents.defaults.model.primary" config.json)
+          if [ "$PRIMARY_MODEL" = "claude-sonnet-3-5" ]; then
+            echo "✓ Primary model configuration verified"
+          else
+            echo "✗ Primary model configuration mismatch (got: $PRIMARY_MODEL)"
+            exit 1
+          fi
+          
+          # Verify AI model fallbacks
+          FALLBACKS_LEN=$(jq ".agents.defaults.model.fallbacks | length" config.json)
+          if [ "$FALLBACKS_LEN" = "4" ]; then
+            echo "✓ Fallbacks count verified ($FALLBACKS_LEN)"
+          else
+            echo "✗ Fallbacks count mismatch (got: $FALLBACKS_LEN)"
+            exit 1
+          fi
+          
+          # Verify models dictionary
+          MODELS_LEN=$(jq ".agents.defaults.models | length" config.json)
+          if [ "$MODELS_LEN" = "5" ]; then
+            echo "✓ Models dictionary count verified ($MODELS_LEN)"
+          else
+            echo "✗ Models dictionary count mismatch (got: $MODELS_LEN)"
+            jq ".agents.defaults.models" config.json
+            exit 1
+          fi
+          
+          # Verify model dictionary properties
+          SONNET_CONFIG=$(jq -c ".agents.defaults.models[\"claude-sonnet-3-5\"]" config.json)
+          if [ "$SONNET_CONFIG" = "{}" ]; then
+            echo "✓ Model dictionary contains claude-sonnet-3-5"
+          else
+            echo "✗ Model dictionary missing claude-sonnet-3-5 (got: $SONNET_CONFIG)"
+            exit 1
+          fi
+          
+          GPT4O_CONFIG=$(jq -c ".agents.defaults.models[\"openai/gpt-4o\"]" config.json)
+          if [ "$GPT4O_CONFIG" = "{}" ]; then
+            echo "✓ Model dictionary contains openai/gpt-4o"
+          else
+            echo "✗ Model dictionary missing openai/gpt-4o (got: $GPT4O_CONFIG)"
+            exit 1
+          fi
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          juju destroy-model test-models -y --force --no-wait || true
+          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
+
 
   test-config-preservation:
     name: Test Config Preservation
