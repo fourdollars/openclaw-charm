@@ -52,7 +52,7 @@ jobs:
           charmcraft pack --verbose --destructive-mode
       
       - name: Upload charm artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: openclaw-charm
           path: openclaw_*.charm
