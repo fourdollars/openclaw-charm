@@ -252,14 +252,14 @@ jobs:
 
           # Verify AI model configuration
           PRIMARY_MODEL=$(jq -r '.agents.defaults.model.primary' config.json)
-          if [ "$PRIMARY_MODEL" = "claude-sonnet-3-5" ]; then
+          if [ "$PRIMARY_MODEL" = "anthropic/claude-sonnet-3-5" ]; then
             echo "✓ Primary model configuration verified"
           else
             echo "✗ Primary model configuration mismatch (got: $PRIMARY_MODEL)"
             exit 1
           fi
           
-          MODEL_CONFIG=$(jq -c '.agents.defaults.models["claude-sonnet-3-5"]' config.json)
+          MODEL_CONFIG=$(jq -c '.agents.defaults.models["anthropic/claude-sonnet-3-5"]' config.json)
           if [ "$MODEL_CONFIG" = "{}" ]; then
             echo "✓ Model dictionary configuration verified"
           else
@@ -336,7 +336,7 @@ jobs:
           
           # Verify AI model primary
           PRIMARY_MODEL=$(jq -r ".agents.defaults.model.primary" config.json)
-          if [ "$PRIMARY_MODEL" = "claude-sonnet-3-5" ]; then
+          if [ "$PRIMARY_MODEL" = "anthropic/claude-sonnet-3-5" ]; then
             echo "✓ Primary model configuration verified"
           else
             echo "✗ Primary model configuration mismatch (got: $PRIMARY_MODEL)"
@@ -363,11 +363,11 @@ jobs:
           fi
           
           # Verify model dictionary properties
-          SONNET_CONFIG=$(jq -c ".agents.defaults.models[\"claude-sonnet-3-5\"]" config.json)
+          SONNET_CONFIG=$(jq -c ".agents.defaults.models[\"anthropic/claude-sonnet-3-5\"]" config.json)
           if [ "$SONNET_CONFIG" = "{}" ]; then
-            echo "✓ Model dictionary contains claude-sonnet-3-5"
+            echo "✓ Model dictionary contains anthropic/claude-sonnet-3-5"
           else
-            echo "✗ Model dictionary missing claude-sonnet-3-5 (got: $SONNET_CONFIG)"
+            echo "✗ Model dictionary missing anthropic/claude-sonnet-3-5 (got: $SONNET_CONFIG)"
             exit 1
           fi
           
