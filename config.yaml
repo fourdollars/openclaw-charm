@@ -107,6 +107,24 @@ options:
       - Text Generation WebUI: http://localhost:5000/v1
       Leave empty to use default provider endpoints.
   
+  ai-context-window:
+    type: int
+    default: 0
+    description: |
+      Override the context window size (in tokens) for the primary AI model.
+      Set to a positive integer (e.g. 8192) to cap memory usage on low-VRAM GPUs.
+      
+      Use case: When using Ollama via the openai provider (ai-provider=openai,
+      ai-base-url=http://.../v1), OpenClaw cannot auto-discover the model's context
+      window. Setting this prevents OpenClaw from defaulting to a huge context that
+      causes out-of-memory crashes on constrained hardware.
+      
+      Only effective when ai-provider is NOT 'ollama' (i.e. OpenAI-compatible mode).
+      In native ollama mode, OpenClaw auto-discovers and enforces the model's own
+      context window, so this setting has no effect.
+      
+      0 = use OpenClaw's default (no override).
+  
   # Additional AI models (ai0 through ai9) for multi-model support
   ai0-provider:
     type: string
@@ -131,7 +149,14 @@ options:
     type: string
     default: ""
     description: Custom API base URL for AI model slot 0 (for OpenAI-compatible local services)
-  
+
+  ai0-context-window:
+    type: int
+    default: 0
+    description: |
+      Override the context window size (in tokens) for AI model slot 0.
+      See ai-context-window for full details. 0 = no override.
+
   ai1-provider:
     type: string
     default: ""
@@ -151,7 +176,14 @@ options:
     type: string
     default: ""
     description: Custom API base URL for AI model slot 1 (for OpenAI-compatible local services)
-  
+
+  ai1-context-window:
+    type: int
+    default: 0
+    description: |
+      Override the context window size (in tokens) for AI model slot 1.
+      See ai-context-window for full details. 0 = no override.
+
   ai2-provider:
     type: string
     default: ""
@@ -171,7 +203,14 @@ options:
     type: string
     default: ""
     description: Custom API base URL for AI model slot 2 (for OpenAI-compatible local services)
-  
+
+  ai2-context-window:
+    type: int
+    default: 0
+    description: |
+      Override the context window size (in tokens) for AI model slot 2.
+      See ai-context-window for full details. 0 = no override.
+
   ai3-provider:
     type: string
     default: ""
@@ -191,7 +230,14 @@ options:
     type: string
     default: ""
     description: Custom API base URL for AI model slot 3 (for OpenAI-compatible local services)
-  
+
+  ai3-context-window:
+    type: int
+    default: 0
+    description: |
+      Override the context window size (in tokens) for AI model slot 3.
+      See ai-context-window for full details. 0 = no override.
+
   ai4-provider:
     type: string
     default: ""
@@ -211,7 +257,14 @@ options:
     type: string
     default: ""
     description: Custom API base URL for AI model slot 4 (for OpenAI-compatible local services)
-  
+
+  ai4-context-window:
+    type: int
+    default: 0
+    description: |
+      Override the context window size (in tokens) for AI model slot 4.
+      See ai-context-window for full details. 0 = no override.
+
   ai5-provider:
     type: string
     default: ""
@@ -231,7 +284,14 @@ options:
     type: string
     default: ""
     description: Custom API base URL for AI model slot 5 (for OpenAI-compatible local services)
-  
+
+  ai5-context-window:
+    type: int
+    default: 0
+    description: |
+      Override the context window size (in tokens) for AI model slot 5.
+      See ai-context-window for full details. 0 = no override.
+
   ai6-provider:
     type: string
     default: ""
@@ -251,7 +311,14 @@ options:
     type: string
     default: ""
     description: Custom API base URL for AI model slot 6 (for OpenAI-compatible local services)
-  
+
+  ai6-context-window:
+    type: int
+    default: 0
+    description: |
+      Override the context window size (in tokens) for AI model slot 6.
+      See ai-context-window for full details. 0 = no override.
+
   ai7-provider:
     type: string
     default: ""
@@ -271,7 +338,14 @@ options:
     type: string
     default: ""
     description: Custom API base URL for AI model slot 7 (for OpenAI-compatible local services)
-  
+
+  ai7-context-window:
+    type: int
+    default: 0
+    description: |
+      Override the context window size (in tokens) for AI model slot 7.
+      See ai-context-window for full details. 0 = no override.
+
   ai8-provider:
     type: string
     default: ""
@@ -291,7 +365,14 @@ options:
     type: string
     default: ""
     description: Custom API base URL for AI model slot 8 (for OpenAI-compatible local services)
-  
+
+  ai8-context-window:
+    type: int
+    default: 0
+    description: |
+      Override the context window size (in tokens) for AI model slot 8.
+      See ai-context-window for full details. 0 = no override.
+
   ai9-provider:
     type: string
     default: ""
@@ -311,7 +392,14 @@ options:
     type: string
     default: ""
     description: Custom API base URL for AI model slot 9 (for OpenAI-compatible local services)
-  
+
+  ai9-context-window:
+    type: int
+    default: 0
+    description: |
+      Override the context window size (in tokens) for AI model slot 9.
+      See ai-context-window for full details. 0 = no override.
+
   telegram-bot-token:
     type: string
     default: ""
