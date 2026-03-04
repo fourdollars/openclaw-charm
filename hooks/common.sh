@@ -631,7 +631,7 @@ generate_config() {
         log_info "Adding custom base URL for primary provider ($ai_provider): $base_url"
         if [ -n "$ai_context_window" ] && [ "$ai_context_window" -gt 0 ]; then
             local model_id
-            model_id=$(echo "$primary_model" | sed 's|^[^/]*/||')
+            model_id="${primary_model#*/}"
             log_info "Applying ai-context-window=$ai_context_window for model $ai_provider/$model_id"
             jq --arg provider "$ai_provider" \
                --arg baseUrl "$base_url" \
@@ -658,7 +658,7 @@ generate_config() {
             if [ -n "$slot_context_window" ] && [ "$slot_context_window" -gt 0 ]; then
                 local slot_first_model slot_model_id
                 slot_first_model="$(config-get "ai${i}-model" | cut -d',' -f1 | xargs)"
-                slot_model_id=$(echo "$slot_first_model" | sed 's|^[^/]*/||')
+                slot_model_id="${slot_first_model#*/}"
                 log_info "Applying ai${i}-context-window=$slot_context_window for model $slot_provider/$slot_model_id"
                 jq --arg provider "$slot_provider" \
                    --arg baseUrl "$slot_base_url" \
