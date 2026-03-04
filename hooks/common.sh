@@ -402,7 +402,7 @@ generate_config() {
     local config_file="/home/ubuntu/.openclaw/openclaw.json"
     local temp_file="${config_file}.tmp"
     local ai_provider ai_model api_key
-    local gateway_port gateway_bind log_level dm_scope use_browser
+    local gateway_port gateway_bind log_level dm_scope use_browser ai_context_window
     
     ai_provider="$(config-get ai-provider)"
     ai_model="$(config-get ai-model)"
@@ -412,6 +412,7 @@ generate_config() {
     log_level="$(config-get log-level)"
     dm_scope="$(config-get dm-scope)"
     use_browser="$(config-get use-browser)"
+    ai_context_window="$(config-get ai-context-window)"
     
     log_info "Updating OpenClaw configuration using jq"
     
@@ -628,23 +629,49 @@ generate_config() {
     
     if [ -n "$base_url" ] && [ -n "$ai_provider" ]; then
         log_info "Adding custom base URL for primary provider ($ai_provider): $base_url"
-        jq --arg provider "$ai_provider" \
-           --arg baseUrl "$base_url" \
-           '.models.providers[$provider] = {baseUrl: $baseUrl, models: []}' \
-           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+        if [ -n "$ai_context_window" ] && [ "$ai_context_window" -gt 0 ]; then
+            local model_id
+            model_id=$(echo "$primary_model" | sed 's|^[^/]*/||')
+            log_info "Applying ai-context-window=$ai_context_window for model $ai_provider/$model_id"
+            jq --arg provider "$ai_provider" \
+               --arg baseUrl "$base_url" \
+               --arg modelId "$model_id" \
+               --argjson ctx "$ai_context_window" \
+               '.models.providers[$provider] = {baseUrl: $baseUrl, models: [{id: $modelId, name: $modelId, api: "openai-completions", contextWindow: $ctx}]}' \
+               "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+        else
+            jq --arg provider "$ai_provider" \
+               --arg baseUrl "$base_url" \
+               '.models.providers[$provider] = {baseUrl: $baseUrl, models: []}' \
+               "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+        fi
     fi
     
     for i in 0 1 2 3 4 5 6 7 8 9; do
-        local slot_provider slot_base_url
+        local slot_provider slot_base_url slot_context_window
         slot_provider="$(config-get "ai${i}-provider")"
         slot_base_url="$(config-get "ai${i}-base-url")"
+        slot_context_window="$(config-get "ai${i}-context-window")"
         
         if [ -n "$slot_provider" ] && [ -n "$slot_base_url" ]; then
             log_info "Adding custom base URL for slot $i provider ($slot_provider): $slot_base_url"
-            jq --arg provider "$slot_provider" \
-               --arg baseUrl "$slot_base_url" \
-               '.models.providers[$provider] = {baseUrl: $baseUrl, models: []}' \
-               "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+            if [ -n "$slot_context_window" ] && [ "$slot_context_window" -gt 0 ]; then
+                local slot_first_model slot_model_id
+                slot_first_model="$(config-get "ai${i}-model" | cut -d',' -f1 | xargs)"
+                slot_model_id=$(echo "$slot_first_model" | sed 's|^[^/]*/||')
+                log_info "Applying ai${i}-context-window=$slot_context_window for model $slot_provider/$slot_model_id"
+                jq --arg provider "$slot_provider" \
+                   --arg baseUrl "$slot_base_url" \
+                   --arg modelId "$slot_model_id" \
+                   --argjson ctx "$slot_context_window" \
+                   '.models.providers[$provider] = {baseUrl: $baseUrl, models: [{id: $modelId, name: $modelId, api: "openai-completions", contextWindow: $ctx}]}' \
+                   "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+            else
+                jq --arg provider "$slot_provider" \
+                   --arg baseUrl "$slot_base_url" \
+                   '.models.providers[$provider] = {baseUrl: $baseUrl, models: []}' \
+                   "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+            fi
         fi
     done
     
@@ -1100,6 +1127,9 @@ validate_config() {
                 ;;
             ollama)
                 log_info "Ollama provider selected - ensure Ollama is installed and running separately"
+                if [ "$(config-get ai-context-window)" -gt 0 ] 2>/dev/null; then
+                    log_warn "ai-context-window has no effect when ai-provider=ollama; use ai-provider=openai with ai-base-url pointing to Ollama's /v1 endpoint to control context window size"
+                fi
                 ;;
             bedrock)
                 log_info "AWS Bedrock provider selected - ensure AWS credentials are configured"
