@@ -346,22 +346,80 @@ install_browser() {
     esac
 }
 
-ensure_browser_installed() {
+install_tailscale() {
+    if command -v tailscale >/dev/null 2>&1; then
+        log_info "Tailscale already installed"
+        return 0
+    fi
+    log_info "Installing Tailscale"
+    curl -fsSL https://tailscale.com/install.sh | sh
+}
+
+install_homebrew() {
+    if [ -f /home/linuxbrew/.linuxbrew/bin/brew ] || command -v brew >/dev/null 2>&1; then
+        log_info "Homebrew already installed"
+        return 0
+    fi
+    log_info "Installing Homebrew"
+    
+    apt-get update
+    apt-get install -y build-essential curl git
+    
+    # Needs to be non-interactive and run as a non-root user (ubuntu)
+    # shellcheck disable=SC2016
+    su - ubuntu -c 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+    
+    # Add to ubuntu user's profile
+    if ! grep -q "brew shellenv" /home/ubuntu/.bashrc; then
+        # shellcheck disable=SC2016
+        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/ubuntu/.bashrc
+        chown ubuntu:ubuntu /home/ubuntu/.bashrc
+    fi
+}
+
+ensure_pkgs_installed() {
     if [ "$(should_manage_config)" = "false" ]; then
-        log_info "Manual mode enabled - skipping browser installation management"
+        log_info "Manual mode enabled - skipping pkgs installation management"
         return 0
     fi
     
-    local use_browser
-    use_browser="$(config-get use-browser)"
+    local install_pkgs
+    install_pkgs="$(config-get install-pkgs)"
     
-    if [ -z "$use_browser" ]; then
-        log_debug "use-browser is empty - skipping browser installation"
+    # Fallback to dummy use-browser for backward compatibility
+    if [ -z "$install_pkgs" ]; then
+        install_pkgs="$(config-get use-browser)"
+    fi
+    
+    if [ -z "$install_pkgs" ]; then
+        log_debug "install-pkgs is empty - skipping package installations"
         return 0
     fi
     
-    log_info "use-browser is set to '$use_browser' - ensuring browser is installed"
-    install_browser "$use_browser"
+    log_info "install-pkgs is set to '$install_pkgs' - ensuring packages are installed"
+    
+    # install_pkgs can be comma separated, like "chrome,tailscale,homebrew"
+    IFS=',' read -ra PKGS <<< "$install_pkgs"
+    for pkg in "${PKGS[@]}"; do
+        # Trim whitespace
+        pkg=$(echo "$pkg" | xargs)
+        case "$pkg" in
+            chrome|chromium|firefox)
+                install_browser "$pkg"
+                ;;
+            tailscale)
+                install_tailscale
+                ;;
+            homebrew|brew)
+                install_homebrew
+                ;;
+            *)
+                if [ -n "$pkg" ]; then
+                    log_warning "Unknown package in install-pkgs: $pkg"
+                fi
+                ;;
+        esac
+    done
 }
 
 # Ensure environment file exists (required by systemd service)
@@ -402,7 +460,7 @@ generate_config() {
     local config_file="/home/ubuntu/.openclaw/openclaw.json"
     local temp_file="${config_file}.tmp"
     local ai_provider ai_model api_key
-    local gateway_port gateway_bind log_level dm_scope use_browser ai_context_window
+    local gateway_port gateway_bind log_level dm_scope install_pkgs ai_context_window
     
     ai_provider="$(config-get ai-provider)"
     ai_model="$(config-get ai-model)"
@@ -411,7 +469,11 @@ generate_config() {
     gateway_bind="$(config-get gateway-bind)"
     log_level="$(config-get log-level)"
     dm_scope="$(config-get dm-scope)"
-    use_browser="$(config-get use-browser)"
+    
+    install_pkgs="$(config-get install-pkgs)"
+    if [ -z "$install_pkgs" ]; then
+        install_pkgs="$(config-get use-browser)"
+    fi
     ai_context_window="$(config-get ai-context-window)"
     
     log_info "Updating OpenClaw configuration using jq"
@@ -507,7 +569,20 @@ generate_config() {
         | .logging.level = $log_level' \
         "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     
-    if [ -n "$use_browser" ]; then
+    # Check if a browser is in install_pkgs
+    local has_browser=false
+    if [ -n "$install_pkgs" ]; then
+        IFS=',' read -ra PKGS <<< "$install_pkgs"
+        for pkg in "${PKGS[@]}"; do
+            pkg=$(echo "$pkg" | xargs)
+            if [ "$pkg" = "chrome" ] || [ "$pkg" = "chromium" ] || [ "$pkg" = "firefox" ]; then
+                has_browser=true
+                break
+            fi
+        done
+    fi
+
+    if [ "$has_browser" = true ]; then
         jq '.browser = {enabled: true, headless: true, defaultProfile: "openclaw"}' \
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     else

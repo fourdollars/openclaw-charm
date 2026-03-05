@@ -427,7 +427,7 @@ juju config openclaw dm-scope="per-channel-peer"
 juju config openclaw sandbox-mode="non-main"
 
 # Disable browser automation if not needed
-juju config openclaw use-browser=""
+juju config openclaw install-pkgs=""
 ```
 
 **DM Session Scope Options:**
@@ -467,7 +467,7 @@ juju config openclaw gateway-bind="lan"
 juju config openclaw log-level="debug"
 
 # Enable browser automation (can be set anytime)
-juju config openclaw use-browser=chrome  # or chromium, firefox
+juju config openclaw install-pkgs="chrome,tailscale,homebrew"  # or chromium, firefox
 ```
 
 ---
@@ -499,7 +499,7 @@ juju config openclaw use-browser=chrome  # or chromium, firefox
 | `install-method` | string | npm | Install method: npm, pnpm, bun, source |
 | `version` | string | latest | Version to install |
 | `auto-update` | boolean | false | Auto-update on charm upgrade |
-| `use-browser` | string | "" | Browser for automation: chrome, chromium, firefox, or empty |
+| `install-pkgs` | string | "" | Packages for automation/tools: chrome, chromium, firefox, tailscale, homebrew or empty |
 | `log-level` | string | info | Log level: debug, info, warn, error |
 
 ---

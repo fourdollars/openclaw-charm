@@ -775,13 +775,13 @@ Browser automation (Playwright) is disabled by default to reduce installation ti
 
 ```bash
 # Install Chrome
-juju config openclaw use-browser=chrome
+juju config openclaw install-pkgs=chrome
 
 # Or install Chromium
-juju config openclaw use-browser=chromium
+juju config openclaw install-pkgs=chromium
 
 # Or install Firefox
-juju config openclaw use-browser=firefox
+juju config openclaw install-pkgs=firefox
 ```
 
 This will automatically install the specified browser and enable browser automation features.
@@ -819,7 +819,7 @@ You should see: `Browser control service ready (profiles=2)`
 **Disable browser automation:**
 
 ```bash
-juju config openclaw use-browser=""
+juju config openclaw install-pkgs=""
 ```
 
 **Note:** Disabling will not uninstall the browser, but OpenClaw will stop advertising browser capabilities.
@@ -1156,7 +1156,7 @@ ssh -L 18789:127.0.0.1:18789 ubuntu@<gateway-ip>
 | `line-channel-secret` | - | LINE channel secret |
 | `install-method` | npm | npm, pnpm, bun, or source |
 | `version` | latest | OpenClaw version to install |
-| `use-browser` | "" | Browser type: chrome, chromium, firefox, or empty |
+| `install-pkgs` | "" | Packages to install: chrome, tailscale, homebrew, or empty |
 | `log-level` | info | debug, info, warn, or error |
 
 ---

@@ -966,14 +966,14 @@ jobs:
         run: |
           juju add-model test-browser
       
-      - name: Deploy with use-browser=chrome
+      - name: Deploy with install-pkgs=chrome,tailscale,homebrew
         run: |
           CHARM_FILE=$(ls openclaw_*.charm | head -1)
           juju deploy ./$CHARM_FILE \
             --config ai-provider="anthropic" \
             --config ai-model="claude-sonnet-3-5" \
             --config ai-api-key="test-key" \
-            --config use-browser="chrome"
+            --config install-pkgs="chrome,tailscale,homebrew"
       
       - name: Wait for deployment
         run: |
@@ -991,7 +991,32 @@ jobs:
             echo "✗ Chrome is not installed"
             exit 1
           fi
-      
+
+      - name: Verify Tailscale installation
+        run: |
+          echo "=== Verifying Tailscale installation ==="
+          tailscale_version=$(juju ssh openclaw/0 'tailscale version' 2>&1 || echo "NOT_INSTALLED")
+          echo "Tailscale version: $tailscale_version"
+          
+          if echo "$tailscale_version" | grep -q "NOT_INSTALLED"; then
+            echo "✗ Tailscale is not installed"
+            exit 1
+          else
+            echo "✓ Tailscale is installed"
+          fi
+          
+      - name: Verify Homebrew installation
+        run: |
+          echo "=== Verifying Homebrew installation ==="
+          brew_version=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c "brew --version"' 2>&1 || echo "NOT_INSTALLED")
+          echo "Homebrew version: $brew_version"
+          
+          if echo "$brew_version" | grep -q "Homebrew"; then
+            echo "✓ Homebrew is installed"
+          else
+            echo "✗ Homebrew is not installed"
+            exit 1
+          fi
       - name: Verify AppArmor is disabled for Chrome
         run: |
           echo "=== Verifying AppArmor status ==="
@@ -1097,15 +1122,15 @@ jobs:
           echo "=== Testing browser disable ==="
           
           # Disable browser
-          juju config openclaw use-browser=""
+          juju config openclaw install-pkgs=""
           
           # Wait for config to apply
           sleep 30
           
-          # Verify browser object is null (not present) when use-browser is empty
+          # Verify browser object is null (not present) when install-pkgs is empty
           browser_config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq '.browser')
           if [ "$browser_config" = "null" ]; then
-            echo "✓ browser object is null when use-browser is empty"
+            echo "✓ browser object is null when install-pkgs is empty"
           else
             echo "✗ browser object is not null (got: $browser_config)"
             exit 1
@@ -1126,8 +1151,8 @@ jobs:
           echo "=== Testing browser re-enable ==="
           
           # Re-enable browser
-          juju config openclaw use-browser="chrome"
-          
+          juju config openclaw install-pkgs="chrome"
+
           # Wait for config to apply
           sleep 30
           

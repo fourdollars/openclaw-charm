@@ -29,7 +29,7 @@ apt-get install -y \
     unzip \
     ripgrep
 
-ensure_browser_installed
+ensure_pkgs_installed
 
 # Use ubuntu user (already exists on Ubuntu systems)
 
