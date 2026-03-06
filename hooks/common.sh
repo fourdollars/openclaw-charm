@@ -356,10 +356,29 @@ install_tailscale() {
 }
 
 install_homebrew() {
-    if [ -f /home/linuxbrew/.linuxbrew/bin/brew ] || command -v brew >/dev/null 2>&1; then
-        log_info "Homebrew already installed"
+    local brew_prefix=""
+    if [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
+        brew_prefix="/home/linuxbrew/.linuxbrew"
+    elif [ -f /home/ubuntu/.linuxbrew/bin/brew ]; then
+        brew_prefix="/home/ubuntu/.linuxbrew"
+    elif command -v brew >/dev/null 2>&1; then
+        brew_prefix="$(brew --prefix 2>/dev/null || true)"
+    fi
+
+    if [ -n "$brew_prefix" ]; then
+        log_info "Homebrew already installed at $brew_prefix"
+        # Ensure .bash_profile has shellenv so brew is available in non-interactive login shells.
+        # Ubuntu's ~/.bashrc exits early for non-interactive shells (case $- check), so login-shell
+        # commands like 'sudo -u ubuntu bash -l -c "brew ..."' won't see brew unless we also
+        # configure .bash_profile (which bash reads for login shells unconditionally).
+        if ! grep -q "brew shellenv" /home/ubuntu/.bash_profile 2>/dev/null; then
+            # shellcheck disable=SC2016
+            echo "eval \"\$(${brew_prefix}/bin/brew shellenv)\"" >> /home/ubuntu/.bash_profile
+            chown ubuntu:ubuntu /home/ubuntu/.bash_profile
+        fi
         return 0
     fi
+
     log_info "Installing Homebrew"
     
     apt-get update
@@ -369,12 +388,31 @@ install_homebrew() {
     # Use sudo (not su) to avoid TTY/PAM failures in Juju hook context
     # shellcheck disable=SC2016
     sudo -u ubuntu bash -l -c "NONINTERACTIVE=1 /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-    
-    # Add to ubuntu user's profile
+
+    if [ -f /home/linuxbrew/.linuxbrew/bin/brew ]; then
+        brew_prefix="/home/linuxbrew/.linuxbrew"
+    elif [ -f /home/ubuntu/.linuxbrew/bin/brew ]; then
+        brew_prefix="/home/ubuntu/.linuxbrew"
+    else
+        log_warn "Homebrew installation completed but brew binary not found at expected paths"
+        return 1
+    fi
+
     if ! grep -q "brew shellenv" /home/ubuntu/.bashrc; then
         # shellcheck disable=SC2016
-        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/ubuntu/.bashrc
+        echo "eval \"\$(${brew_prefix}/bin/brew shellenv)\"" >> /home/ubuntu/.bashrc
         chown ubuntu:ubuntu /home/ubuntu/.bashrc
+    fi
+
+    # Add to .bash_profile (for login shells, including non-interactive login shells).
+    # Ubuntu's .bashrc contains 'case $- in *i*) ;; *) return;; esac' which causes it to
+    # exit immediately for non-interactive shells. When 'sudo -u ubuntu bash -l -c ...' is
+    # used (login but non-interactive), bash reads .bash_profile but NOT .bashrc, so
+    # brew's shellenv would never be set. Writing directly to .bash_profile fixes this.
+    if ! grep -q "brew shellenv" /home/ubuntu/.bash_profile 2>/dev/null; then
+        # shellcheck disable=SC2016
+        echo "eval \"\$(${brew_prefix}/bin/brew shellenv)\"" >> /home/ubuntu/.bash_profile
+        chown ubuntu:ubuntu /home/ubuntu/.bash_profile
     fi
 }
 
