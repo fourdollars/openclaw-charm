@@ -1847,7 +1847,7 @@ jobs:
         run: |
           juju add-model test-context-window
 
-      - name: Deploy with ai-context-window set
+      - name: Deploy with ai-context-window=16384
         run: |
           CHARM_FILE=$(ls openclaw_*.charm | head -1)
           juju deploy ./$CHARM_FILE \
@@ -1861,7 +1861,7 @@ jobs:
         run: |
           juju-wait -v -m test-context-window -t 900
 
-      - name: Verify models.providers structure with context window
+      - name: Verify models.providers.openai structure with context window
         run: |
           config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
 
@@ -1920,10 +1920,10 @@ jobs:
             exit 1
           fi
 
-      - name: Test context window update
+      - name: Update ai-context-window to 32768
         run: |
           juju config openclaw ai-context-window=32768
-          sleep 30
+          juju-wait -v -m test-context-window -t 120
 
           config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
           ctx=$(echo "$config" | jq -r '.models.providers.openai.models[0].contextWindow')
@@ -1934,24 +1934,24 @@ jobs:
             exit 1
           fi
 
-      - name: Test disabling context window (reset to 0)
+      - name: Reset ai-context-window to default (verify models array is cleared)
         run: |
-          juju config openclaw ai-context-window=0
-          sleep 30
+          juju config openclaw --reset ai-context-window
+          juju-wait -v -m test-context-window -t 120
 
           config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
 
-          # models array must be empty when ai-context-window=0
+          # models array must be empty when ai-context-window is reset to default (0)
           models_len=$(echo "$config" | jq '.models.providers.openai.models | length')
           if [ "$models_len" = "0" ]; then
-            echo "✓ models array is empty when ai-context-window=0"
+            echo "✓ models array is empty when ai-context-window is reset to default"
           else
             echo "✗ models array should be empty (got length: $models_len)"
             echo "$config" | jq '.models'
             exit 1
           fi
 
-      - name: Deploy slot 0 with ai0-context-window
+      - name: Configure slot 0 with ai0-context-window=32768
         run: |
           juju config openclaw \
             ai0-provider="openai" \
@@ -1959,9 +1959,9 @@ jobs:
             ai0-api-key="test-key" \
             ai0-base-url="http://localhost:11434/v1" \
             ai0-context-window=32768
-          sleep 30
+          juju-wait -v -m test-context-window -t 120
 
-      - name: Verify slot 0 models.providers structure with context window
+      - name: Verify slot 0 models.providers.openai structure with context window
         run: |
           config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
 
@@ -2011,10 +2011,10 @@ jobs:
             exit 1
           fi
 
-      - name: Test updating slot 0 context window
+      - name: Update ai0-context-window to 16384
         run: |
           juju config openclaw ai0-context-window=16384
-          sleep 30
+          juju-wait -v -m test-context-window -t 120
 
           config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
           ctx=$(echo "$config" | jq -r '.models.providers.openai.models[0].contextWindow')
@@ -2025,17 +2025,17 @@ jobs:
             exit 1
           fi
 
-      - name: Test disabling slot 0 context window (reset to 0)
+      - name: Reset ai0-context-window to default (verify models array is cleared)
         run: |
-          juju config openclaw ai0-context-window=0
-          sleep 30
+          juju config openclaw --reset ai0-context-window
+          juju-wait -v -m test-context-window -t 120
 
           config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
 
-          # models array must be empty when ai0-context-window=0
+          # models array must be empty when ai0-context-window is reset to default (0)
           models_len=$(echo "$config" | jq '.models.providers.openai.models | length')
           if [ "$models_len" = "0" ]; then
-            echo "✓ slot 0 models array is empty when ai0-context-window=0"
+            echo "✓ slot 0 models array is empty when ai0-context-window is reset to default"
           else
             echo "✗ slot 0 models array should be empty (got length: $models_len)"
             echo "$config" | jq '.models'
