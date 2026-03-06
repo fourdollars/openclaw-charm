@@ -366,8 +366,9 @@ install_homebrew() {
     apt-get install -y build-essential curl git
     
     # Needs to be non-interactive and run as a non-root user (ubuntu)
+    # Use sudo (not su) to avoid TTY/PAM failures in Juju hook context
     # shellcheck disable=SC2016
-    su - ubuntu -c 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+    sudo -u ubuntu bash -l -c 'NONINTERACTIVE=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
     
     # Add to ubuntu user's profile
     if ! grep -q "brew shellenv" /home/ubuntu/.bashrc; then
@@ -415,7 +416,7 @@ ensure_pkgs_installed() {
                 ;;
             *)
                 if [ -n "$pkg" ]; then
-                    log_warning "Unknown package in install-pkgs: $pkg"
+                    log_warn "Unknown package in install-pkgs: $pkg"
                 fi
                 ;;
         esac
