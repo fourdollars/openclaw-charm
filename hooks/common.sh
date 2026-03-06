@@ -368,7 +368,7 @@ install_homebrew() {
     # Needs to be non-interactive and run as a non-root user (ubuntu)
     # Use sudo (not su) to avoid TTY/PAM failures in Juju hook context
     # shellcheck disable=SC2016
-    sudo -u ubuntu bash -l -c 'NONINTERACTIVE=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+    sudo -u ubuntu bash -l -c "NONINTERACTIVE=1 /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
     
     # Add to ubuntu user's profile
     if ! grep -q "brew shellenv" /home/ubuntu/.bashrc; then
