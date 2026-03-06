@@ -495,13 +495,6 @@ options:
       Example: "chrome,tailscale,homebrew".
       Can be changed post-deployment via 'juju config'.
 
-  use-browser:
-    type: string
-    default: ""
-    description: |
-      Dummy config kept for backward compatibility with older charms.
-      Please use 'install-pkgs' instead.
-  
   log-level:
     type: string
     default: info

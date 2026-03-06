@@ -273,8 +273,7 @@ juju deploy openclaw --channel edge \
   --config anthropic-api-key="sk-ant-xxx" \
   --config dm-policy="pairing" \
   --config sandbox-mode="all" \
-  --config gateway-bind="loopback" \
-  --config use-browser=""
+  --config gateway-bind="loopback"
 ```
 
 ---
@@ -370,7 +369,6 @@ juju deploy openclaw --channel=candidate
 dm-policy: pairing        # Require pairing for DMs
 sandbox-mode: non-main    # Sandbox group/channel sessions
 gateway-bind: loopback    # Don't expose to public internet
-use-browser: ""  # Disable if not needed
 ```
 
 ---

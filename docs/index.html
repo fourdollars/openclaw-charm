@@ -1251,10 +1251,6 @@
                                 <dt>sandbox-mode</dt>
                                 <dd>Sandbox mode: all, non-main, or none</dd>
                             </div>
-                            <div class="config-option">
-                                <dt>use-browser</dt>
-                                <dd>Browser for automation: chrome, chromium, firefox, or empty</dd>
-                            </div>
                         </dl>
                     </div>
                     
@@ -1276,6 +1272,10 @@
                             <div class="config-option">
                                 <dt>node-version</dt>
                                 <dd>Node.js major version (minimum 22)</dd>
+                            </div>
+                            <div class="config-option">
+                                <dt>install-pkgs</dt>
+                                <dd>Comma-separated list of extra packages to install: <code>chrome</code>, <code>chromium</code>, <code>firefox</code>, <code>tailscale</code>, <code>homebrew</code>. Example: <code>chrome,tailscale,homebrew</code>. Can be changed post-deployment via <code>juju config</code>.</dd>
                             </div>
                         </dl>
                     </div>

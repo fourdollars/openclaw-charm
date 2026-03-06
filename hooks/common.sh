@@ -425,11 +425,6 @@ ensure_pkgs_installed() {
     local install_pkgs
     install_pkgs="$(config-get install-pkgs)"
     
-    # Fallback to dummy use-browser for backward compatibility
-    if [ -z "$install_pkgs" ]; then
-        install_pkgs="$(config-get use-browser)"
-    fi
-    
     if [ -z "$install_pkgs" ]; then
         log_debug "install-pkgs is empty - skipping package installations"
         return 0
@@ -510,9 +505,6 @@ generate_config() {
     dm_scope="$(config-get dm-scope)"
     
     install_pkgs="$(config-get install-pkgs)"
-    if [ -z "$install_pkgs" ]; then
-        install_pkgs="$(config-get use-browser)"
-    fi
     ai_context_window="$(config-get ai-context-window)"
     
     log_info "Updating OpenClaw configuration using jq"
