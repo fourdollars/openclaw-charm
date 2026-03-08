@@ -509,34 +509,86 @@ generate_config() {
     
     log_info "Updating OpenClaw configuration using jq"
     
-    # Parse comma-separated models from ai-model
-    local primary_model fallback_models
-    if echo "$ai_model" | grep -q ','; then
-        # Multiple models provided
-        local first_model
-        first_model=$(echo "$ai_model" | cut -d',' -f1 | xargs)
-        # Check if first model has provider prefix
-        # Special case: OpenRouter models need openrouter/ prefix even if they contain /
-        if echo "$first_model" | grep -q '^[a-z0-9-]*/' && [ "$ai_provider" != "openrouter" ]; then
-            primary_model="$first_model"
+    # Determine the order of slots
+    local order
+    order="$(config-get ai-providers-order)"
+    
+    local -a slots=()
+    local -A seen_slots
+    if [ -n "$order" ]; then
+        # Parse order and handle empty fields (primary slot)
+        while IFS= read -r slot; do
+            slots+=("$slot")
+            local key="$slot"; [ -z "$key" ] && key="primary"
+            seen_slots["$key"]=1
+        done < <(echo "$order" | tr ',' '\n')
+    fi
+    # Append missing default slots: "" (primary), 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
+    for default_slot in "" 0 1 2 3 4 5 6 7 8 9; do
+        local key="$default_slot"; [ -z "$key" ] && key="primary"
+        if [ -z "${seen_slots["$key"]}" ]; then
+            slots+=("$default_slot")
+            seen_slots["$key"]=1
+        fi
+    done
+
+    # Collect all models in order
+    local -a all_full_models=()
+    for slot in "${slots[@]}"; do
+        local s_provider s_model
+        if [ -z "$slot" ]; then
+            s_provider="$(config-get ai-provider)"
+            s_model="$(config-get ai-model)"
         else
-            primary_model="${ai_provider}/${first_model}"
+            s_provider="$(config-get "ai${slot}-provider")"
+            s_model="$(config-get "ai${slot}-model")"
         fi
         
-        # Get remaining models
-        fallback_models=$(echo "$ai_model" | cut -d',' -f2-)
-        log_info "Primary model: ${primary_model}"
-        log_info "Additional models from ai-model: $(echo "$fallback_models" | tr ',' ' ')"
-    else
-        # Single model provided
-        # Special case: OpenRouter models need openrouter/ prefix even if they contain /
-        if echo "$ai_model" | grep -q '^[a-z0-9-]*/' && [ "$ai_provider" != "openrouter" ]; then
-            primary_model="$ai_model"
-        else
-            primary_model="${ai_provider}/${ai_model}"
+        if [ -n "$s_provider" ] && [ -n "$s_model" ]; then
+            # Handle comma-separated models in slot
+            while IFS= read -r m; do
+                m=$(echo "$m" | xargs)
+                [ -z "$m" ] && continue
+                local full_m
+                if echo "$m" | grep -q '^[a-z0-9-]*/' && [ "$s_provider" != "openrouter" ]; then
+                    full_m="$m"
+                else
+                    full_m="${s_provider}/${m}"
+                fi
+                all_full_models+=("$full_m")
+            done < <(echo "$s_model" | tr ',' '\n')
         fi
-        fallback_models=""
-        log_info "Primary model: ${primary_model}"
+    done
+    
+    # Deduplicate while preserving order
+    local -a unique_models=()
+    local -A seen_models
+    for m in "${all_full_models[@]}"; do
+        if [ -z "${seen_models["$m"]}" ]; then
+            unique_models+=("$m")
+            seen_models["$m"]=1
+        fi
+    done
+
+    local global_primary_model=""
+    if [ ${#unique_models[@]} -gt 0 ]; then
+        global_primary_model="${unique_models[0]}"
+        log_info "Global primary model: ${global_primary_model}"
+    else
+        log_error "No AI models configured"
+        global_primary_model="none/none"
+    fi
+
+    # Parse primary slot first model (for ai-base-url logic)
+    local primary_model=""
+    if [ -n "$ai_model" ]; then
+        local first_m
+        first_m=$(echo "$ai_model" | cut -d',' -f1 | xargs)
+        if echo "$first_m" | grep -q '^[a-z0-9-]*/' && [ "$ai_provider" != "openrouter" ]; then
+            primary_model="$first_m"
+        else
+            primary_model="${ai_provider}/${first_m}"
+        fi
     fi
     
     local gateway_token
@@ -589,7 +641,7 @@ generate_config() {
     fi
     
     jq \
-        --arg model "${primary_model}" \
+        --arg model "${global_primary_model}" \
         --arg log_level "$log_level" \
         --arg dm_scope "$dm_scope" \
         '.agents.defaults.model.primary = $model
@@ -623,26 +675,15 @@ generate_config() {
     
     jq '.channels = {}' "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     
-    # Add remaining models from ai-model as fallbacks
-    if [ -n "$fallback_models" ]; then
-        echo "$fallback_models" | tr ',' '\n' | while read -r model; do
-            model=$(echo "$model" | xargs)
-            if [ -n "$model" ]; then
-                # Check if model has provider prefix
-                # Special case: OpenRouter models need openrouter/ prefix even if they contain /
-                if echo "$model" | grep -q '^[a-z0-9-]*/' && [ "$ai_provider" != "openrouter" ]; then
-                    full_model="$model"
-                else
-                    full_model="${ai_provider}/${model}"
-                fi
-                log_info "Adding fallback model from ai-model: ${full_model}"
-                jq --arg model "${full_model}" \
-                   '.agents.defaults.model.fallbacks += [$model]
-                   | .agents.defaults.models[$model] = {}' \
-                   "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
-            fi
-        done
-    fi
+    # Add fallback models in order
+    for (( i=1; i<${#unique_models[@]}; i++ )); do
+        local fallback_model="${unique_models[$i]}"
+        log_info "Adding fallback model: ${fallback_model}"
+        jq --arg model "${fallback_model}" \
+           '.agents.defaults.model.fallbacks += [$model]
+           | .agents.defaults.models[$model] = {}' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    done
     
     local telegram_bot_token discord_bot_token slack_bot_token slack_app_token
     local line_channel_access_token line_channel_secret
@@ -678,55 +719,6 @@ generate_config() {
            '.channels.line = {dmPolicy: "pairing", channelAccessToken: $access_token, channelSecret: $secret}' \
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
-    
-    # Add additional AI models (ai0-ai9) as fallbacks
-    for i in 0 1 2 3 4 5 6 7 8 9; do
-        local slot_provider slot_model
-        slot_provider="$(config-get "ai${i}-provider")"
-        slot_model="$(config-get "ai${i}-model")"
-        
-        if [ -n "$slot_provider" ] && [ -n "$slot_model" ]; then
-            # Parse comma-separated models from slot
-            if echo "$slot_model" | grep -q ','; then
-                # Multiple models in slot
-                echo "$slot_model" | tr ',' '\n' | while read -r model; do
-                    model=$(echo "$model" | xargs)
-                    if [ -n "$model" ]; then
-                        # Check if model has provider prefix
-                        # Special case: OpenRouter models need openrouter/ prefix even if they contain /
-                        if echo "$model" | grep -q '^[a-z0-9-]*/' && [ "$slot_provider" != "openrouter" ]; then
-                            full_model="$model"
-                        else
-                            full_model="${slot_provider}/${model}"
-                        fi
-                        log_info "Adding AI model from slot $i as fallback: ${full_model}"
-                        jq --arg model "${full_model}" \
-                           '.agents.defaults.model.fallbacks += [$model]
-                           | .agents.defaults.models[$model] = {}' \
-                           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
-                    fi
-                done
-            else
-                # Single model in slot
-                # Special case: OpenRouter models need openrouter/ prefix even if they contain /
-                if echo "$slot_model" | grep -q '^[a-z0-9-]*/' && [ "$slot_provider" != "openrouter" ]; then
-                    full_model="$slot_model"
-                else
-                    full_model="${slot_provider}/${slot_model}"
-                fi
-                log_info "Adding AI model slot $i as fallback: ${full_model}"
-                jq --arg model "${full_model}" \
-                   '.agents.defaults.model.fallbacks += [$model]
-                   | .agents.defaults.models[$model] = {}' \
-                   "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
-            fi
-        fi
-    done
-    
-    # Deduplicate fallback models (remove duplicates while preserving order)
-    log_info "Deduplicating fallback models"
-    jq '.agents.defaults.model.fallbacks |= (reduce .[] as $item ([]; if any(.[]; . == $item) then . else . + [$item] end))' \
-       "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     
     jq 'del(.models.providers)' "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     

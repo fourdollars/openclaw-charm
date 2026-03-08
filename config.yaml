@@ -74,6 +74,19 @@ options:
       - Multiple same provider: gpt-4,gpt-3.5-turbo,gpt-4o-mini
       - GitHub Copilot aggregator: gemini-3-flash-preview,claude-haiku-4.5,gpt-4
   
+  ai-providers-order:
+    type: string
+    default: ""
+    description: |
+      Comma-separated list of AI model slots to prioritize (e.g. "3,2,1,").
+      Empty string represents the primary ai-model slot.
+      By default (empty), the order is: ai-model, ai0-model, ai1-model, ..., ai9-model.
+      
+      Slots not mentioned in the list will follow the natural order after the prioritized slots.
+      
+      Example: "3,2,1," will result in the following order:
+      ai3-model, ai2-model, ai1-model, ai-model, ai0-model, ai4-model, ai5-model, ..., ai9-model.
+  
   ai-api-key:
     type: string
     default: ""

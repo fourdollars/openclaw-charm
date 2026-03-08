@@ -2059,3 +2059,90 @@ jobs:
         run: |
           juju destroy-model test-context-window -y --force --no-wait || true
           juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
+
+  test-ai-providers-order:
+    name: Test AI Providers Order
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Download charm artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: openclaw-charm
+      
+      - name: Set up LXD
+        uses: canonical/setup-lxd@main
+      
+      - name: Install Juju
+        run: |
+          sudo snap install juju --channel=3/stable
+          sudo snap install juju-wait --classic
+      
+      - name: Bootstrap Juju
+        run: |
+          lxc network set lxdbr0 ipv6.address none
+          juju bootstrap localhost test-controller
+      
+      - name: Create test model
+        run: |
+          juju add-model test-order
+      
+      - name: Deploy with custom order
+        run: |
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju deploy ./$CHARM_FILE \
+            --config ai-provider="anthropic" \
+            --config ai-model="claude-sonnet-3-5" \
+            --config ai-api-key="test-key-primary" \
+            --config ai3-provider="openai" \
+            --config ai3-model="gpt-4o" \
+            --config ai3-api-key="test-key-3" \
+            --config ai2-provider="google" \
+            --config ai2-model="gemini-2.5-flash" \
+            --config ai2-api-key="test-key-2" \
+            --config ai-providers-order="3,2,"
+      
+      - name: Wait for deployment
+        run: |
+          juju-wait -v -m test-order -t 900
+      
+      - name: Verify ordered configuration
+        run: |
+          juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' > config.json
+          
+          # Verify AI model primary (should be ai3-model)
+          PRIMARY_MODEL=$(jq -r ".agents.defaults.model.primary" config.json)
+          if [ "$PRIMARY_MODEL" = "openai/gpt-4o" ]; then
+            echo "✓ Primary model configuration verified (ai3-model is first)"
+          else
+            echo "✗ Primary model configuration mismatch (got: $PRIMARY_MODEL, expected: openai/gpt-4o)"
+            exit 1
+          fi
+          
+          # Verify AI model fallbacks order
+          # Order should be: ai3 (primary), ai2, ai (empty slot)
+          
+          FB0=$(jq -r ".agents.defaults.model.fallbacks[0]" config.json)
+          if [ "$FB0" = "google/gemini-2.5-flash" ]; then
+            echo "✓ First fallback verified (ai2-model)"
+          else
+            echo "✗ First fallback mismatch (got: $FB0, expected: google/gemini-2.5-flash)"
+            exit 1
+          fi
+          
+          FB1=$(jq -r ".agents.defaults.model.fallbacks[1]" config.json)
+          if [ "$FB1" = "anthropic/claude-sonnet-3-5" ]; then
+            echo "✓ Second fallback verified (ai-model)"
+          else
+            echo "✗ Second fallback mismatch (got: $FB1, expected: anthropic/claude-sonnet-3-5)"
+            exit 1
+          fi
+      
+      - name: Cleanup
+        if: always()
+        run: |
+          juju destroy-model test-order -y --force --no-wait || true
+          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
