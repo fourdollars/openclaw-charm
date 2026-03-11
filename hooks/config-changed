@@ -16,7 +16,7 @@ if [ "$(should_manage_config)" = "false" ]; then
     if [ "$ROLE" = "gateway" ]; then
         status-set active "Manual mode - user manages Gateway configuration"
     else
-        if ! generate_node_config; then
+        if ! update_node_config; then
             status-set blocked "Waiting for Gateway connection info from leader"
             exit 0
         fi
@@ -172,7 +172,7 @@ if [ "$ROLE" = "gateway" ]; then
         log_info "openclaw reinstalled to version: ${NEW_INSTALLED}"
     fi
 
-    generate_config
+    update_config
     
     OLD_PORT=$(grep "OPENCLAW_GATEWAY_PORT" /home/ubuntu/.openclaw/environment 2>/dev/null | cut -d'=' -f2 || echo "")
     NEW_PORT=$(config-get gateway-port)
@@ -259,7 +259,7 @@ if [ "$ROLE" = "gateway" ]; then
         fi
     fi
 else
-    if ! generate_node_config; then
+    if ! update_node_config; then
         status-set blocked "Waiting for Gateway connection info from leader"
         log_info "Node config cannot be updated - waiting for Gateway info"
         exit 0

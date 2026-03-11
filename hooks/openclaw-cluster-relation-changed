@@ -38,7 +38,7 @@ elif [ "$ROLE" = "node" ]; then
         
         status-set maintenance "Updating node configuration"
         
-        if generate_node_config; then
+        if update_node_config; then
             create_node_systemd_service
             update_node_service_token
             

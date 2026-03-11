@@ -39,7 +39,7 @@ peers:
 Added role detection and node management functions:
 - `is_leader()`: Checks if current unit is the leader
 - `get_unit_role()`: Returns "gateway" or "node" based on leader status
-- `generate_node_config()`: Creates node configuration with Gateway connection info
+- `update_node_config()`: Creates node configuration with Gateway connection info
 - `create_node_systemd_service()`: Creates systemd service for Node
 - `start_openclaw_node()`: Starts Node service
 - `stop_openclaw_node()`: Stops Node service

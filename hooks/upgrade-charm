@@ -147,7 +147,7 @@ if [ "$(config-get auto-update)" = "True" ]; then
 fi
 
 if [ "$ROLE" = "gateway" ]; then
-    generate_config
+    update_config
     if is_gateway_running; then
         log_info "Gateway service already running - restarting after upgrade"
         if restart_openclaw; then

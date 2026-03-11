@@ -481,8 +481,8 @@ EOF
     log_debug "Environment file created at $env_file"
 }
 
-# Generate OpenClaw configuration
-generate_config() {
+# Update OpenClaw configuration
+update_config() {
     # Always ensure environment file exists (required by systemd)
     ensure_environment_file
     
@@ -645,13 +645,17 @@ generate_config() {
         --arg log_level "$log_level" \
         --arg dm_scope "$dm_scope" \
         '.agents.defaults.model.primary = $model
-        | .agents.defaults.model.fallbacks = []
-        | .agents.defaults.models = {}
-        | .agents.defaults.models[$model] = {}
         | .session.dmScope = $dm_scope
         | .logging.level = $log_level' \
         "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     
+    # Update models and fallbacks (these are managed by the charm)
+    jq '.agents.defaults.model.fallbacks = [] | .agents.defaults.models = {}' \
+        "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    jq --arg model "${global_primary_model}" \
+        '.agents.defaults.models[$model] = {}' \
+        "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+
     # Check if a browser is in install_pkgs
     local has_browser=false
     if [ -n "$install_pkgs" ]; then
@@ -673,7 +677,8 @@ generate_config() {
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
-    jq '.channels = {}' "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    # Initialize channels if not exists
+    jq 'if .channels == null then .channels = {} else . end' "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     
     # Add fallback models in order
     for (( i=1; i<${#unique_models[@]}; i++ )); do
@@ -696,31 +701,44 @@ generate_config() {
     
     if [ -n "$telegram_bot_token" ]; then
         jq --arg token "$telegram_bot_token" \
-           '.channels.telegram = {botToken: $token}' \
+           '.channels.telegram.botToken = $token' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    else
+        jq 'del(.channels.telegram.botToken)' \
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
     if [ -n "$discord_bot_token" ]; then
         jq --arg token "$discord_bot_token" \
-           '.channels.discord = {token: $token}' \
+           '.channels.discord.token = $token' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    else
+        jq 'del(.channels.discord.token)' \
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
     if [ -n "$slack_bot_token" ] && [ -n "$slack_app_token" ]; then
         jq --arg bot_token "$slack_bot_token" \
            --arg app_token "$slack_app_token" \
-           '.channels.slack = {botToken: $bot_token, appToken: $app_token}' \
+           '.channels.slack.botToken = $bot_token | .channels.slack.appToken = $app_token' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    else
+        jq 'del(.channels.slack.botToken, .channels.slack.appToken)' \
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
     if [ -n "$line_channel_access_token" ] && [ -n "$line_channel_secret" ]; then
         jq --arg access_token "$line_channel_access_token" \
            --arg secret "$line_channel_secret" \
-           '.channels.line = {dmPolicy: "pairing", channelAccessToken: $access_token, channelSecret: $secret}' \
+           '.channels.line.dmPolicy = "pairing" | .channels.line.channelAccessToken = $access_token | .channels.line.channelSecret = $secret' \
+           "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    else
+        jq 'del(.channels.line.channelAccessToken, .channels.line.channelSecret)' \
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
-    jq 'del(.models.providers)' "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
+    # Update providers (managed by the charm)
+    jq '.models.providers = {}' "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     
     local base_url
     base_url="$(config-get ai-base-url)"
@@ -838,8 +856,8 @@ generate_config() {
     log_info "Configuration updated at $config_file"
 }
 
-# Generate OpenClaw Node configuration
-generate_node_config() {
+# Update OpenClaw Node configuration
+update_node_config() {
     local config_file="/home/ubuntu/.openclaw/node.json"
     local gateway_host gateway_port gateway_token
     local relation_id leader_unit

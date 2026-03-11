@@ -460,21 +460,21 @@ jobs:
           echo "token_before=$TOKEN" >> "$GITHUB_ENV"
           echo "Gateway token recorded: $TOKEN"
 
-      - name: Inject user-managed field into openclaw.json
+      - name: Inject user-managed field and channel property into openclaw.json
         run: |
-          juju ssh openclaw/0 'jq '\''.user_custom_field = "preserve-me-12345"'\'' \
+          juju ssh openclaw/0 'jq '\''.user_custom_field = "preserve-me-12345" | .channels.telegram.custom_prop = "preserve-me-6789"'\'' \
             /home/ubuntu/.openclaw/openclaw.json > /tmp/oc.tmp && \
             mv /tmp/oc.tmp /home/ubuntu/.openclaw/openclaw.json'
-          echo "✓ Injected user_custom_field into openclaw.json"
+          echo "✓ Injected user_custom_field and telegram.custom_prop into openclaw.json"
 
       - name: Trigger config-changed via juju config update
         run: |
-          juju config openclaw log-level=debug
+          juju config openclaw log-level=debug telegram-bot-token="654321:NEW-TOKEN"
           sleep 30
           juju config openclaw log-level=info
           sleep 30
 
-      - name: Verify user field and gateway token survive config-changed
+      - name: Verify user field, channel property and gateway token survive config-changed
         run: |
           config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json')
 
@@ -487,12 +487,29 @@ jobs:
             exit 1
           fi
 
+          chan_custom=$(echo "$config" | jq -r '.channels.telegram.custom_prop')
+          echo "channels.telegram.custom_prop after config-changed: $chan_custom"
+          if [ "$chan_custom" = "preserve-me-6789" ]; then
+            echo "✓ Custom channel property preserved across config-changed"
+          else
+            echo "✗ Custom channel property was lost (got: $chan_custom)"
+            exit 1
+          fi
+
           token_after=$(echo "$config" | jq -r '.gateway.auth.token')
           echo "Gateway token after config-changed: $token_after"
           if [ "$token_after" = "${{ env.token_before }}" ]; then
             echo "✓ Gateway token preserved across config-changed"
           else
             echo "✗ Gateway token changed (before: ${{ env.token_before }}, after: $token_after)"
+            exit 1
+          fi
+
+          new_tg_token=$(echo "$config" | jq -r '.channels.telegram.botToken')
+          if [ "$new_tg_token" = "654321:NEW-TOKEN" ]; then
+            echo "✓ Telegram botToken updated correctly"
+          else
+            echo "✗ Telegram botToken update failed (got: $new_tg_token)"
             exit 1
           fi
 
@@ -546,6 +563,15 @@ jobs:
             echo "✓ User-managed field preserved across container restart"
           else
             echo "✗ User-managed field lost after restart (got: $custom_restart)"
+            exit 1
+          fi
+
+          chan_custom_restart=$(echo "$config" | jq -r '.channels.telegram.custom_prop')
+          echo "channels.telegram.custom_prop after restart: $chan_custom_restart"
+          if [ "$chan_custom_restart" = "preserve-me-6789" ]; then
+            echo "✓ Custom channel property preserved across container restart"
+          else
+            echo "✗ Custom channel property lost after restart (got: $chan_custom_restart)"
             exit 1
           fi
 

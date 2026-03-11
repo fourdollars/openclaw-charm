@@ -60,7 +60,7 @@ if [ "$(should_manage_config)" = "false" ]; then
         fi
         exit 0
     else
-        if ! generate_node_config; then
+        if ! update_node_config; then
             status-set blocked "Waiting for Gateway connection info from leader"
             log_info "Node cannot start yet - waiting for Gateway info"
             exit 0
@@ -116,7 +116,7 @@ if [ "$ROLE" = "gateway" ]; then
         exit 1
     fi
     
-    generate_config
+    update_config
     open_ports
     
     if is_gateway_running; then
@@ -222,7 +222,7 @@ if [ "$ROLE" = "gateway" ]; then
         exit 1
     fi
 else
-    if ! generate_node_config; then
+    if ! update_node_config; then
         status-set blocked "Waiting for Gateway connection info from leader"
         log_info "Node cannot start yet - waiting for Gateway info"
         exit 0
