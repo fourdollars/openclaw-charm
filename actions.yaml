@@ -44,3 +44,8 @@ list-models:
       default: "json"
       description: |
         Output format: 'json' (structured details) or 'text' (simple list)
+
+upgrade:
+  description: |
+    Perform a system upgrade (apt-get full-upgrade) and reboot the system.
+    If manual=false and version="" or "latest", it also upgrades OpenClaw.

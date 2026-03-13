@@ -2172,3 +2172,105 @@ jobs:
         run: |
           juju destroy-model test-order -y --force --no-wait || true
           juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
+
+  test-system-upgrade-action:
+    name: Test System Upgrade Action
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Download charm artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: openclaw-charm
+
+      - name: Set up LXD
+        uses: canonical/setup-lxd@main
+        with:
+          channel: latest/stable
+
+      - name: Install Juju
+        run: |
+          sudo snap install juju --channel=3/stable
+          sudo snap install juju-wait --classic
+
+      - name: Bootstrap Juju
+        run: |
+          lxc network set lxdbr0 ipv6.address none
+          juju bootstrap localhost test-controller
+
+      - name: Create test model
+        run: |
+          juju add-model test-system-upgrade
+
+      - name: Deploy with specific version
+        run: |
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju deploy ./$CHARM_FILE \
+            --config install-method=npm \
+            --config ai-provider="anthropic" \
+            --config ai-model="claude-sonnet-3-5" \
+            --config ai-api-key="test-key" \
+            --config version="2026.3.8"
+
+      - name: Wait for deployment
+        run: |
+          juju-wait -v -m test-system-upgrade -t 900
+
+      - name: Verify initial version
+        run: |
+          installed=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && openclaw --version 2>&1 | tail -1"' || echo "unknown")
+          version_num=$(echo "$installed" | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+\(-[a-zA-Z0-9.-]\+\)\?' | head -1)
+          if [ "$version_num" = "2026.3.8" ]; then
+            echo "✓ Initial version 2026.3.8 installed correctly"
+          else
+            echo "✗ Expected 2026.3.8, got: $installed (parsed as: $version_num)"
+            exit 1
+          fi
+
+      - name: Run upgrade action
+        run: |
+          juju config openclaw version=""
+          sleep 15
+          juju run openclaw/leader upgrade
+
+          # Wait for the system to reboot and Juju to reconnect
+          echo "Waiting for reboot and service recovery..."
+          sleep 60
+          juju-wait -v -m test-system-upgrade -t 300
+
+      - name: Verify upgraded version
+        run: |
+          # Give the node some time to finish its restart
+          sleep 30
+          installed=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && openclaw --version 2>&1 | tail -1"' || echo "unknown")
+          echo "Installed version after upgrade action: $installed"
+          
+          # Extract version number
+          version_num=$(echo "$installed" | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+\(-[a-zA-Z0-9.-]\+\)\?' | head -1)
+          echo "Parsed version: $version_num"
+          
+          # Compare versions
+          if dpkg --compare-versions "$version_num" "gt" "2026.3.8"; then
+             echo "✓ Upgraded successfully to $version_num (greater than 2026.3.8)"
+          else
+             echo "✗ Version $version_num is not greater than 2026.3.8"
+             exit 1
+          fi
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== Juju Status ==="
+          juju status --format=yaml
+
+          echo "=== Debug Log ==="
+          juju debug-log --replay --no-tail --limit 500
+
+      - name: Cleanup
+        if: always()
+        run: |
+          juju destroy-model test-system-upgrade -y --force --no-wait || true
+          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true

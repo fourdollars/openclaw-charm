@@ -1,0 +1,31 @@
+#!/bin/bash
+set -e
+
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$CHARM_DIR/hooks/common.sh"
+
+log_info "Starting system upgrade..."
+action-set status="running apt-get update and full-upgrade"
+
+export DEBIAN_FRONTEND=noninteractive
+sudo apt-get update
+sudo apt-get -yq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" full-upgrade
+
+MANAGE_CONFIG="$(should_manage_config)"
+VERSION="$(config-get version)"
+
+if [ "$MANAGE_CONFIG" = "true" ]; then
+    if [ -z "$VERSION" ] || [ "$VERSION" = "latest" ]; then
+        log_info "OpenClaw configuration is auto-managed and version is set to '$VERSION'. Checking for OpenClaw updates..."
+        action-set status="checking for openclaw update"
+        # Force the update check by removing the rate limit file
+        rm -f /home/ubuntu/.openclaw/.last-update-check
+        check_and_update_openclaw || true
+    fi
+fi
+
+action-set status="scheduling reboot"
+log_info "System upgrade complete. Scheduling reboot in 1 minute."
+sudo shutdown -r +1 "System upgrading via juju action 'upgrade'"
+
+action-set result="System upgraded and reboot scheduled"
