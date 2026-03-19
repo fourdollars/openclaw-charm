@@ -367,14 +367,14 @@ install_homebrew() {
 
     if [ -n "$brew_prefix" ]; then
         log_info "Homebrew already installed at $brew_prefix"
-        # Ensure .bash_profile has shellenv so brew is available in non-interactive login shells.
+        # Ensure .profile has shellenv so brew is available in login shells.
         # Ubuntu's ~/.bashrc exits early for non-interactive shells (case $- check), so login-shell
         # commands like 'sudo -u ubuntu bash -l -c "brew ..."' won't see brew unless we also
-        # configure .bash_profile (which bash reads for login shells unconditionally).
-        if ! grep -q "brew shellenv" /home/ubuntu/.bash_profile 2>/dev/null; then
+        # configure .profile (which bash reads for login shells).
+        if ! grep -q "brew shellenv" /home/ubuntu/.profile 2>/dev/null; then
             # shellcheck disable=SC2016
-            echo "eval \"\$(${brew_prefix}/bin/brew shellenv)\"" >> /home/ubuntu/.bash_profile
-            chown ubuntu:ubuntu /home/ubuntu/.bash_profile
+            echo "eval \"\$(${brew_prefix}/bin/brew shellenv)\"" >> /home/ubuntu/.profile
+            chown ubuntu:ubuntu /home/ubuntu/.profile
         fi
         return 0
     fi
@@ -404,15 +404,15 @@ install_homebrew() {
         chown ubuntu:ubuntu /home/ubuntu/.bashrc
     fi
 
-    # Add to .bash_profile (for login shells, including non-interactive login shells).
+    # Add to .profile (for login shells, including non-interactive login shells).
     # Ubuntu's .bashrc contains 'case $- in *i*) ;; *) return;; esac' which causes it to
     # exit immediately for non-interactive shells. When 'sudo -u ubuntu bash -l -c ...' is
-    # used (login but non-interactive), bash reads .bash_profile but NOT .bashrc, so
-    # brew's shellenv would never be set. Writing directly to .bash_profile fixes this.
-    if ! grep -q "brew shellenv" /home/ubuntu/.bash_profile 2>/dev/null; then
+    # used (login but non-interactive), bash reads .profile but NOT the rest of .bashrc, so
+    # brew's shellenv would never be set. Writing directly to .profile fixes this.
+    if ! grep -q "brew shellenv" /home/ubuntu/.profile 2>/dev/null; then
         # shellcheck disable=SC2016
-        echo "eval \"\$(${brew_prefix}/bin/brew shellenv)\"" >> /home/ubuntu/.bash_profile
-        chown ubuntu:ubuntu /home/ubuntu/.bash_profile
+        echo "eval \"\$(${brew_prefix}/bin/brew shellenv)\"" >> /home/ubuntu/.profile
+        chown ubuntu:ubuntu /home/ubuntu/.profile
     fi
 }
 
