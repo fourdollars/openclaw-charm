@@ -11,7 +11,10 @@ FORCE="$(action-get force || echo "false")"
 
 # Generate timestamp for backup filename
 TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
-BACKUP_FILENAME="openclaw-backup-${TIMESTAMP}.tar.gz"
+APP_NAME="${JUJU_UNIT_NAME%%/*}"
+APP_NAME="${APP_NAME:-openclaw}"
+HOST_NAME=$(hostname)
+BACKUP_FILENAME="${APP_NAME}-${HOST_NAME}-openclaw-backup-${TIMESTAMP}.tar.gz"
 BACKUP_FILE="${OUTPUT_PATH}/${BACKUP_FILENAME}"
 
 # OpenClaw data directory

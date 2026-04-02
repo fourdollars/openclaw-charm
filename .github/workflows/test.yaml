@@ -2274,3 +2274,92 @@ jobs:
         run: |
           juju destroy-model test-system-upgrade -y --force --no-wait || true
           juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
+
+  test-backup:
+    name: Test Backup Action
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Download charm artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: openclaw-charm
+
+      - name: Set up LXD
+        uses: canonical/setup-lxd@main
+        with:
+          channel: latest/stable
+
+      - name: Install Juju
+        run: |
+          sudo snap install juju --channel=3/stable
+          sudo snap install juju-wait --classic
+
+      - name: Bootstrap Juju
+        run: |
+          lxc network set lxdbr0 ipv6.address none
+          juju bootstrap localhost test-controller
+
+      - name: Create test model
+        run: |
+          juju add-model test-backup
+
+      - name: Deploy charm
+        run: |
+          CHARM_FILE=$(ls openclaw_*.charm | head -1)
+          juju deploy ./$CHARM_FILE \
+            --config ai-provider="anthropic" \
+            --config ai-model="claude-sonnet-3-5" \
+            --config ai-api-key="test-key"
+
+      - name: Wait for deployment
+        run: |
+          juju-wait -v -m test-backup -t 900
+
+      - name: Run backup action and verify filename
+        run: |
+          # Run the backup action
+          OUTPUT=$(juju run openclaw/leader backup --format=json)
+          echo "Action Output: $OUTPUT"
+          
+          # Extract backup-file from action output
+          BACKUP_FILE=$(echo "$OUTPUT" | jq -r '.. | .results? | select(. != null) | ."backup-file"')
+          
+          if [ -z "$BACKUP_FILE" ] || [ "$BACKUP_FILE" = "null" ]; then
+             echo "✗ Failed to extract backup-file from action output"
+             exit 1
+          fi
+          
+          echo "Generated backup file: $BACKUP_FILE"
+          
+          # Verify filename prefix
+          APP_NAME="openclaw"
+          HOST_NAME=$(juju ssh openclaw/leader 'hostname' | tr -d '\r\n')
+          
+          EXPECTED_PREFIX="${APP_NAME}-${HOST_NAME}-openclaw-backup-"
+          BASENAME=$(basename "$BACKUP_FILE")
+          
+          if echo "$BASENAME" | grep -q "^$EXPECTED_PREFIX"; then
+            echo "✓ Backup filename has the correct prefix: $EXPECTED_PREFIX"
+          else
+            echo "✗ Backup filename ($BASENAME) does not have expected prefix ($EXPECTED_PREFIX)"
+            exit 1
+          fi
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== Juju Status ==="
+          juju status --format=yaml
+
+          echo "=== Debug Log ==="
+          juju debug-log --replay --no-tail --limit 500
+
+      - name: Cleanup
+        if: always()
+        run: |
+          juju destroy-model test-backup -y --force --no-wait || true
+          juju destroy-controller test-controller -y --destroy-all-models --force --no-wait || true
