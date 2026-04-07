@@ -191,8 +191,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-openclaw --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-openclaw || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-channels:
     name: Test Messaging Channel Configuration
@@ -279,8 +279,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-channels --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-channels || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-multi-model-config:
     name: Test Multi-Model Configuration
@@ -382,8 +382,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-models --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-models || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
 
   test-config-preservation:
@@ -590,8 +590,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-config-preservation --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-config-preservation || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-upgrade:
     name: Test Charm Upgrade
@@ -659,8 +659,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-upgrade --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-upgrade || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-auto-update:
     name: Test Auto-Update Functionality
@@ -959,8 +959,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-auto-update --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-auto-update || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-browser:
     name: Test Browser Functionality (Chrome)
@@ -1318,8 +1318,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-browser --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-browser || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-manual-mode:
     name: Test Manual Configuration Mode
@@ -1467,8 +1467,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-manual --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-manual || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-version-config:
     name: Test Version Config
@@ -1602,8 +1602,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-version-config --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-version-config || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-node-version-config:
     name: Test Node Version Config
@@ -1715,8 +1715,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-node-version-config --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-node-version-config || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-default-allowed-origins:
     name: Test Default control-ui-allowed-origins
@@ -1838,8 +1838,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-default-origins --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-default-origins || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-context-window:
     name: Test AI Context Window Configuration
@@ -2083,8 +2083,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-context-window --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-context-window || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-ai-providers-order:
     name: Test AI Providers Order
@@ -2170,8 +2170,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-order --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-order || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-system-upgrade-action:
     name: Test System Upgrade Action
@@ -2272,8 +2272,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-system-upgrade --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-system-upgrade || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
 
   test-backup:
     name: Test Backup Action
@@ -2361,5 +2361,5 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          juju destroy-model test-backup --yes --force --no-wait || true
-          juju destroy-controller test-controller --yes --destroy-all-models --force --no-wait || true
+          juju destroy-model --no-prompt --force --no-wait test-backup || true
+          juju destroy-controller --no-prompt --destroy-all-models --force --no-wait test-controller || true
