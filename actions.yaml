@@ -49,3 +49,26 @@ upgrade:
   description: |
     Perform a system upgrade (apt-get full-upgrade) and reboot the system.
     If manual=false and version="" or "latest", it also upgrades OpenClaw.
+    Use reinstall-openclaw=true to force a clean reinstall of OpenClaw (useful
+    when the installation is broken after a failed upgrade).
+  params:
+    reinstall-openclaw:
+      type: boolean
+      default: false
+      description: |
+        Force a clean reinstall of OpenClaw by uninstalling and reinstalling
+        from scratch. Useful when openclaw is broken after a failed upgrade.
+    upgrade-node:
+      type: boolean
+      default: false
+      description: |
+        Upgrade Node.js to the latest patch of the configured major version
+        (node-version config, default 24) via nvm. Because nvm global packages
+        are per-node-version, OpenClaw is automatically reinstalled in the new
+        version regardless of the reinstall-openclaw flag.
+    skip-reboot:
+      type: boolean
+      default: false
+      description: |
+        Skip the scheduled reboot after the upgrade. Useful when only
+        reinstalling OpenClaw without needing a full system reboot.

@@ -204,6 +204,47 @@ install_nodejs() {
     log_info "Node.js installed via nvm: $installed_version"
 }
 
+# Upgrade Node.js to the latest patch of the configured major version via nvm.
+# After upgrading, the nvm default alias is updated to the new version.
+# NOTE: callers are responsible for reinstalling global npm packages (e.g. openclaw)
+# in the new version, since nvm globals are per-node-version.
+upgrade_nodejs() {
+    local node_version nvm_dir
+    node_version="$(config-get node-version)"
+    nvm_dir="/home/ubuntu/.nvm"
+
+    if [ ! -d "$nvm_dir" ]; then
+        log_error "nvm directory not found at $nvm_dir - cannot upgrade Node.js"
+        return 1
+    fi
+
+    log_info "Upgrading Node.js to latest v${node_version}.x via nvm"
+
+    local before_version after_version
+    before_version="$(sudo -u ubuntu bash -l -c "
+        export NVM_DIR=\"$nvm_dir\"
+        [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+        node --version 2>/dev/null || echo unknown
+    " 2>/dev/null | tail -1)"
+
+    sudo -u ubuntu bash -l -c "
+        export NVM_DIR=\"$nvm_dir\"
+        [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+        nvm install ${node_version}
+        nvm alias default ${node_version}
+        nvm use default
+    "
+
+    after_version="$(sudo -u ubuntu bash -l -c "
+        export NVM_DIR=\"$nvm_dir\"
+        [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+        node --version 2>/dev/null || echo unknown
+    " 2>/dev/null | tail -1)"
+
+    log_info "Node.js upgraded: $before_version -> $after_version"
+    echo "$after_version"
+}
+
 # Install Bun runtime
 install_bun() {
     log_info "Installing Bun runtime"
@@ -1469,6 +1510,89 @@ get_installed_openclaw_version() {
         [ -d \"\$BUN_INSTALL/bin\" ] && export PATH=\"\$BUN_INSTALL/bin:\$PATH\"
         timeout 5 openclaw --version 2>/dev/null | tail -1
     " 2>/dev/null || true
+}
+
+# Uninstall and reinstall OpenClaw from scratch using the configured install method.
+# Useful when the installation is broken after a failed upgrade.
+reinstall_openclaw() {
+    local install_method version
+    install_method="$(config-get install-method)"
+    version="$(config-get version)"
+    local install_target="openclaw"
+    if [ -n "$version" ] && [ "$version" != "latest" ]; then
+        install_target="openclaw@${version}"
+    else
+        install_target="openclaw@latest"
+    fi
+
+    log_info "Reinstalling OpenClaw from scratch (method: $install_method, target: $install_target)"
+
+    # Remove existing symlink
+    rm -f /usr/local/bin/openclaw
+    log_info "Removed /usr/local/bin/openclaw symlink"
+
+    case "$install_method" in
+        npm|pnpm)
+            sudo -u ubuntu bash -l -c "
+                export NVM_DIR=\"/home/ubuntu/.nvm\"
+                [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                nvm use $(config-get node-version)
+                npm uninstall -g openclaw 2>/dev/null || true
+                npm install -g ${install_target}
+            "
+            ;;
+        bun)
+            sudo -u ubuntu bash -l -c "
+                export BUN_INSTALL=\"/home/ubuntu/.bun\"
+                export PATH=\"\$BUN_INSTALL/bin:\$PATH\"
+                bun remove -g openclaw 2>/dev/null || true
+                bun install -g ${install_target}
+            "
+            ;;
+        source)
+            local src_dir="/home/ubuntu/openclaw"
+            if [ -d "$src_dir" ]; then
+                log_info "Removing existing source directory"
+                rm -rf "$src_dir"
+            fi
+            sudo -u ubuntu bash -l -c "
+                export NVM_DIR=\"/home/ubuntu/.nvm\"
+                [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                nvm use $(config-get node-version)
+                cd /home/ubuntu && git clone https://github.com/openclaw/openclaw.git
+            "
+            if [ -n "$version" ] && [ "$version" != "latest" ]; then
+                sudo -u ubuntu bash -l -c "
+                    export NVM_DIR=\"/home/ubuntu/.nvm\"
+                    [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                    nvm use $(config-get node-version)
+                    cd /home/ubuntu/openclaw && git checkout ${version}
+                "
+            fi
+            sudo -u ubuntu bash -l -c "
+                export NVM_DIR=\"/home/ubuntu/.nvm\"
+                [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+                nvm use $(config-get node-version)
+                npm install -g pnpm && cd /home/ubuntu/openclaw && pnpm install && pnpm build
+            "
+            ;;
+        *)
+            log_error "Unknown install method: $install_method"
+            return 1
+            ;;
+    esac
+
+    update_openclaw_symlink
+
+    local new_version
+    new_version=$(get_installed_openclaw_version)
+    if [ -z "$new_version" ]; then
+        log_error "OpenClaw reinstall failed - command not found after reinstall"
+        return 1
+    fi
+
+    log_info "OpenClaw reinstalled successfully: version $new_version"
+    return 0
 }
 
 # Rate-limited to once per 24 h (via timestamp file) so frequent update-status

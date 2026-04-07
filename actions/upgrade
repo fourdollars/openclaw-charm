@@ -4,28 +4,63 @@ set -e
 CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$CHARM_DIR/hooks/common.sh"
 
-log_info "Starting system upgrade..."
+REINSTALL_OPENCLAW="$(action-get reinstall-openclaw)"
+UPGRADE_NODE="$(action-get upgrade-node)"
+SKIP_REBOOT="$(action-get skip-reboot)"
+
+log_info "Starting system upgrade (reinstall-openclaw=$REINSTALL_OPENCLAW, upgrade-node=$UPGRADE_NODE, skip-reboot=$SKIP_REBOOT)..."
 action-set status="running apt-get update and full-upgrade"
 
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get update
 sudo apt-get -yq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" full-upgrade
 
-MANAGE_CONFIG="$(should_manage_config)"
-VERSION="$(config-get version)"
-
-if [ "$MANAGE_CONFIG" = "true" ]; then
-    if [ -z "$VERSION" ] || [ "$VERSION" = "latest" ]; then
-        log_info "OpenClaw configuration is auto-managed and version is set to '$VERSION'. Checking for OpenClaw updates..."
-        action-set status="checking for openclaw update"
-        # Force the update check by removing the rate limit file
-        rm -f /home/ubuntu/.openclaw/.last-update-check
-        check_and_update_openclaw || true
+if [ "$UPGRADE_NODE" = "true" ]; then
+    INSTALL_METHOD="$(config-get install-method)"
+    if [ "$INSTALL_METHOD" = "bun" ]; then
+        log_info "install-method=bun — skipping Node.js upgrade"
+    else
+        action-set status="upgrading node.js"
+        NODE_VERSION="$(upgrade_nodejs)"
+        action-set node-version="$NODE_VERSION"
+        log_info "Node.js upgraded to $NODE_VERSION"
+        # nvm globals are per-version, so openclaw must be reinstalled
+        REINSTALL_OPENCLAW="true"
     fi
 fi
 
-action-set status="scheduling reboot"
-log_info "System upgrade complete. Scheduling reboot in 1 minute."
-sudo shutdown -r +1 "System upgrading via juju action 'upgrade'"
+if [ "$REINSTALL_OPENCLAW" = "true" ]; then
+    log_info "Reinstalling OpenClaw from scratch as requested..."
+    action-set status="reinstalling openclaw"
+    if reinstall_openclaw; then
+        INSTALLED_VERSION="$(get_installed_openclaw_version)"
+        action-set openclaw-version="$INSTALLED_VERSION"
+        log_info "OpenClaw reinstalled successfully: $INSTALLED_VERSION"
+    else
+        action-fail "OpenClaw reinstall failed - check unit logs for details"
+        exit 1
+    fi
+else
+    MANAGE_CONFIG="$(should_manage_config)"
+    VERSION="$(config-get version)"
 
-action-set result="System upgraded and reboot scheduled"
+    if [ "$MANAGE_CONFIG" = "true" ]; then
+        if [ -z "$VERSION" ] || [ "$VERSION" = "latest" ]; then
+            log_info "OpenClaw configuration is auto-managed and version is set to '$VERSION'. Checking for OpenClaw updates..."
+            action-set status="checking for openclaw update"
+            # Force the update check by removing the rate limit file
+            rm -f /home/ubuntu/.openclaw/.last-update-check
+            check_and_update_openclaw || true
+        fi
+    fi
+fi
+
+if [ "$SKIP_REBOOT" = "true" ]; then
+    log_info "System upgrade complete. Skipping reboot as requested."
+    action-set result="System upgraded (reboot skipped)"
+else
+    action-set status="scheduling reboot"
+    log_info "System upgrade complete. Scheduling reboot in 1 minute."
+    sudo shutdown -r +1 "System upgrading via juju action 'upgrade'"
+    action-set result="System upgraded and reboot scheduled"
+fi
