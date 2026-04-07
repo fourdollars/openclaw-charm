@@ -220,17 +220,35 @@ upgrade_nodejs() {
 
     log_info "Upgrading Node.js to latest v${node_version}.x via nvm"
 
-    local before_version after_version
+    local before_version after_version latest_patch
     before_version="$(sudo -u ubuntu bash -l -c "
         export NVM_DIR=\"$nvm_dir\"
         [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
         node --version 2>/dev/null || echo unknown
     " 2>/dev/null | tail -1)"
 
+    # Resolve the latest remote patch explicitly — nvm install <major> may
+    # short-circuit to the already-installed version instead of fetching the
+    # newest patch from the remote index.
+    latest_patch="$(sudo -u ubuntu bash -l -c "
+        export NVM_DIR=\"$nvm_dir\"
+        [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+        nvm ls-remote ${node_version} 2>/dev/null \
+            | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' \
+            | sort -V | tail -1
+    " 2>/dev/null | tail -1)"
+
+    if [ -z "$latest_patch" ]; then
+        log_error "Could not resolve latest remote Node.js v${node_version}.x — falling back to 'nvm install ${node_version}'"
+        latest_patch="${node_version}"
+    else
+        log_info "Latest remote Node.js v${node_version}.x is ${latest_patch}"
+    fi
+
     sudo -u ubuntu bash -l -c "
         export NVM_DIR=\"$nvm_dir\"
         [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
-        nvm install ${node_version}
+        nvm install ${latest_patch}
         nvm alias default ${node_version}
         nvm use default
     "
