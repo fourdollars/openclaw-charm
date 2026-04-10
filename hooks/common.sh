@@ -265,6 +265,19 @@ upgrade_nodejs() {
         return 1
     fi
 
+    # Remove all installed versions of the same major that are not the active one
+    sudo -u ubuntu bash -l -c "
+        export NVM_DIR=\"$nvm_dir\"
+        [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
+        nvm ls --no-colors 2>/dev/null \
+            | grep -oE 'v${node_version}[0-9.]*' \
+            | grep -v '${after_version}' \
+            | while read -r old; do
+                echo \"Uninstalling old Node.js \$old\"
+                nvm uninstall \"\$old\" || true
+              done
+    " || log_warn "Failed during cleanup of old Node.js v${node_version}.x versions — continuing"
+
     log_info "Node.js upgraded: $before_version -> $after_version"
     echo "$after_version"
 }
