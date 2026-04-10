@@ -8,6 +8,17 @@ REINSTALL_OPENCLAW="$(action-get reinstall-openclaw | tr '[:upper:]' '[:lower:]'
 UPGRADE_NODE="$(action-get upgrade-node | tr '[:upper:]' '[:lower:]')"
 SKIP_REBOOT="$(action-get skip-reboot | tr '[:upper:]' '[:lower:]')"
 
+# Resolve "auto": when version="" or "latest" and install-method=nvm,
+# default both upgrade-node and reinstall-openclaw to true.
+_VERSION="$(config-get version)"
+_INSTALL_METHOD="$(config-get install-method)"
+_AUTO_UPGRADE="false"
+if [ "$_INSTALL_METHOD" != "bun" ] && { [ -z "$_VERSION" ] || [ "$_VERSION" = "latest" ]; }; then
+    _AUTO_UPGRADE="true"
+fi
+[ "$UPGRADE_NODE" = "auto" ]       && UPGRADE_NODE="$_AUTO_UPGRADE"
+[ "$REINSTALL_OPENCLAW" = "auto" ] && REINSTALL_OPENCLAW="$_AUTO_UPGRADE"
+
 log_info "Starting system upgrade (reinstall-openclaw=$REINSTALL_OPENCLAW, upgrade-node=$UPGRADE_NODE, skip-reboot=$SKIP_REBOOT)..."
 action-set status="running apt-get update and full-upgrade"
 

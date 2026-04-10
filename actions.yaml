@@ -48,24 +48,30 @@ list-models:
 upgrade:
   description: |
     Perform a system upgrade (apt-get full-upgrade) and reboot the system.
-    If manual=false and version="" or "latest", it also upgrades OpenClaw.
-    Use reinstall-openclaw=true to force a clean reinstall of OpenClaw (useful
-    when the installation is broken after a failed upgrade).
+    When install-method=nvm and version="" or "latest", upgrade-node and
+    reinstall-openclaw both default to true automatically — Node.js is
+    upgraded to the latest patch of the configured major version and
+    OpenClaw is reinstalled in the new version. Pass upgrade-node=false
+    or reinstall-openclaw=false to suppress either step explicitly.
   params:
     reinstall-openclaw:
-      type: boolean
-      default: false
+      type: string
+      default: "auto"
       description: |
         Force a clean reinstall of OpenClaw by uninstalling and reinstalling
-        from scratch. Useful when openclaw is broken after a failed upgrade.
+        from scratch. Defaults to "auto": true when install-method=nvm and
+        version="" or "latest", false otherwise. Set to "true" or "false" to
+        override explicitly.
     upgrade-node:
-      type: boolean
-      default: false
+      type: string
+      default: "auto"
       description: |
         Upgrade Node.js to the latest patch of the configured major version
-        (node-version config, default 24) via nvm. Because nvm global packages
-        are per-node-version, OpenClaw is automatically reinstalled in the new
-        version regardless of the reinstall-openclaw flag.
+        (node-version config, default 24) via nvm. Defaults to "auto": true
+        when install-method=nvm and version="" or "latest", false otherwise.
+        Because nvm global packages are per-node-version, OpenClaw is
+        automatically reinstalled in the new version regardless of the
+        reinstall-openclaw flag. Set to "true" or "false" to override.
     skip-reboot:
       type: boolean
       default: false
