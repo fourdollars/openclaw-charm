@@ -4,9 +4,9 @@ set -e
 CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$CHARM_DIR/hooks/common.sh"
 
-REINSTALL_OPENCLAW="$(action-get reinstall-openclaw)"
-UPGRADE_NODE="$(action-get upgrade-node)"
-SKIP_REBOOT="$(action-get skip-reboot)"
+REINSTALL_OPENCLAW="$(action-get reinstall-openclaw | tr '[:upper:]' '[:lower:]')"
+UPGRADE_NODE="$(action-get upgrade-node | tr '[:upper:]' '[:lower:]')"
+SKIP_REBOOT="$(action-get skip-reboot | tr '[:upper:]' '[:lower:]')"
 
 log_info "Starting system upgrade (reinstall-openclaw=$REINSTALL_OPENCLAW, upgrade-node=$UPGRADE_NODE, skip-reboot=$SKIP_REBOOT)..."
 action-set status="running apt-get update and full-upgrade"
@@ -21,7 +21,10 @@ if [ "$UPGRADE_NODE" = "true" ]; then
         log_info "install-method=bun — skipping Node.js upgrade"
     else
         action-set status="upgrading node.js"
-        NODE_VERSION="$(upgrade_nodejs)"
+        if ! NODE_VERSION="$(upgrade_nodejs)"; then
+            action-fail "Node.js upgrade failed - check unit logs for details"
+            exit 1
+        fi
         action-set node-version="$NODE_VERSION"
         log_info "Node.js upgraded to $NODE_VERSION"
         # nvm globals are per-version, so openclaw must be reinstalled

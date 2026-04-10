@@ -246,6 +246,7 @@ upgrade_nodejs() {
     fi
 
     sudo -u ubuntu bash -l -c "
+        set -e
         export NVM_DIR=\"$nvm_dir\"
         [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
         nvm install ${latest_patch}
@@ -258,6 +259,11 @@ upgrade_nodejs() {
         [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
         node --version 2>/dev/null || echo unknown
     " 2>/dev/null | tail -1)"
+
+    if [ "$after_version" != "$latest_patch" ]; then
+        log_error "Node.js upgrade verification failed: expected $latest_patch but got $after_version"
+        return 1
+    fi
 
     log_info "Node.js upgraded: $before_version -> $after_version"
     echo "$after_version"

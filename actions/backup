@@ -7,7 +7,7 @@ source "$CHARM_DIR/hooks/common.sh"
 # Get action parameters
 OUTPUT_PATH="$(action-get output-path || echo "/tmp")"
 WAIT_TIMEOUT="$(action-get wait-timeout || echo "30")"
-FORCE="$(action-get force || echo "false")"
+FORCE="$(action-get force | tr '[:upper:]' '[:lower:]')"
 
 # Generate timestamp for backup filename
 TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
