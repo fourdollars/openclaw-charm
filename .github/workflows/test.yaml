@@ -784,8 +784,8 @@ jobs:
           CHARM_FILE=$(ls openclaw_*.charm | head -1)
           juju refresh openclaw --path ./$CHARM_FILE
           
-          # Wait for upgrade-charm hook to complete
-          sleep 90
+          # Wait for upgrade-charm hook and subsequent config-changed to complete
+          juju-wait -v -m test-auto-update -t 300
           
           # Verify status is still healthy
           status=$(juju status openclaw --format=json | jq -r '.applications.openclaw.units["openclaw/0"]["workload-status"].current')
@@ -810,8 +810,8 @@ jobs:
           # Change Node.js version from 24 to 22
           juju config openclaw node-version=22
           
-          # Wait for config-changed to complete
-          sleep 90
+          # Wait for config-changed (node reinstall) to complete
+          juju-wait -v -m test-auto-update -t 300
           
           # Verify status is healthy
           status=$(juju status openclaw --format=json | jq -r '.applications.openclaw.units["openclaw/0"]["workload-status"].current')
@@ -865,8 +865,8 @@ jobs:
           # Change back to v24
           juju config openclaw node-version=24
           
-          # Wait for config-changed to complete
-          sleep 90
+          # Wait for config-changed (node reinstall) to complete
+          juju-wait -v -m test-auto-update -t 300
           
           # Verify nvm default changed back to v24
           final_node=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm version default"' | tr -d '\n')
@@ -912,8 +912,8 @@ jobs:
           CHARM_FILE=$(ls openclaw_*.charm | head -1)
           juju refresh openclaw --path ./$CHARM_FILE
           
-          # Wait for upgrade to complete
-          sleep 90
+          # Wait for upgrade-charm hook and config-changed to complete
+          juju-wait -v -m test-auto-update -t 300
           
           # Get status message
           status_msg=$(juju status openclaw --format=json | jq -r '.applications.openclaw.units["openclaw/0"]["workload-status"].message')
@@ -1150,8 +1150,8 @@ jobs:
           # Disable browser
           juju config openclaw install-pkgs=""
           
-          # Wait for config to apply
-          sleep 30
+          # Wait for config-changed to apply (browser removal)
+          juju-wait -v -m test-browser -t 120
           
           # Verify browser object is null (not present) when install-pkgs is empty
           browser_config=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq '.browser')
@@ -1649,7 +1649,13 @@ jobs:
 
       - name: Wait for deployment
         run: |
-          juju-wait -v -m test-node-version-config -t 900
+          # juju-wait may fail transiently when the machine agent briefly loses
+          # connection during the long npm install in leader-elected; retry once.
+          juju-wait -v -m test-node-version-config -t 900 || {
+            echo "juju-wait failed (possibly transient connection drop), retrying after 60s..."
+            sleep 60
+            juju-wait -v -m test-node-version-config -t 600
+          }
 
       - name: Verify Node.js v22 is active
         run: |
