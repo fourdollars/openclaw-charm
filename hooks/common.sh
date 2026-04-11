@@ -1546,7 +1546,7 @@ get_installed_openclaw_version() {
         export BUN_INSTALL=\"/home/ubuntu/.bun\"
         [ -d \"\$BUN_INSTALL/bin\" ] && export PATH=\"\$BUN_INSTALL/bin:\$PATH\"
         timeout 5 openclaw --version 2>/dev/null | tail -1
-    " 2>/dev/null || true
+    " 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?' | head -1 || true
 }
 
 # Uninstall and reinstall OpenClaw from scratch using the configured install method.
