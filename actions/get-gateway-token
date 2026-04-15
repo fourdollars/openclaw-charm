@@ -25,7 +25,7 @@ GATEWAY_BIND=$(config-get gateway-bind)
 if [ "$GATEWAY_BIND" = "loopback" ]; then
     IP="127.0.0.1"
 else
-    IP=$(unit-get private-address)
+    IP=$(get_unit_ip)
 fi
 
 case "$FORMAT" in

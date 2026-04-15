@@ -17,7 +17,7 @@ if [ "$(should_manage_config)" = "false" ]; then
     fi
 fi
 
-gateway_host=$(unit-get private-address)
+gateway_host=$(get_unit_ip)
 gateway_port=$(config-get gateway-port)
 gateway_url="ws://${gateway_host}:${gateway_port}"
 gateway_token=$(jq -r '.gateway.auth.token' /home/ubuntu/.openclaw/openclaw.json)

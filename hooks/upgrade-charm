@@ -152,7 +152,7 @@ if [ "$ROLE" = "gateway" ]; then
         log_info "Gateway service already running - restarting after upgrade"
         if restart_openclaw; then
             port="$(config-get gateway-port)"
-            ip=$(unit-get private-address)
+            ip=$(get_unit_ip)
             url="http://${ip}:${port}"
             
             if validate_config; then

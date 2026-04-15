@@ -27,7 +27,7 @@ if [ "$(should_manage_config)" = "false" ]; then
             if [ "$bind" = "loopback" ]; then
                 ip="127.0.0.1"
             else
-                ip=$(unit-get private-address)
+                ip=$(get_unit_ip)
             fi
             
             url="http://${ip}:${port}"
@@ -44,7 +44,7 @@ if [ "$(should_manage_config)" = "false" ]; then
             if [ "$bind" = "loopback" ]; then
                 ip="127.0.0.1"
             else
-                ip=$(unit-get private-address)
+                ip=$(get_unit_ip)
             fi
             
             url="http://${ip}:${port}"
@@ -127,14 +127,14 @@ if [ "$ROLE" = "gateway" ]; then
         if [ "$bind" = "loopback" ]; then
             ip="127.0.0.1"
         else
-            ip=$(unit-get private-address)
+            ip=$(get_unit_ip)
         fi
         
         url="http://${ip}:${port}"
         
         gateway_token=$(jq -r '.gateway.auth.token // empty' /home/ubuntu/.openclaw/openclaw.json 2>/dev/null)
         
-        gateway_host=$(unit-get private-address)
+        gateway_host=$(get_unit_ip)
         
         relation_id=$(relation-ids openclaw-cluster 2>/dev/null | head -1)
         if [ -n "$relation_id" ]; then
@@ -160,7 +160,7 @@ if [ "$ROLE" = "gateway" ]; then
         if [ "$bind" = "loopback" ]; then
             ip="127.0.0.1"
         else
-            ip=$(unit-get private-address)
+            ip=$(get_unit_ip)
         fi
         
         url="http://${ip}:${port}"
@@ -168,7 +168,7 @@ if [ "$ROLE" = "gateway" ]; then
         gateway_token=$(jq -r '.gateway.auth.token // empty' /home/ubuntu/.openclaw/openclaw.json 2>/dev/null)
         
         # For Node connections, always use private-address even if bind is loopback
-        gateway_host=$(unit-get private-address)
+        gateway_host=$(get_unit_ip)
         
         # Set relation data with relation ID
         relation_id=$(relation-ids openclaw-cluster 2>/dev/null | head -1)

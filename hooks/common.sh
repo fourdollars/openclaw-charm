@@ -76,6 +76,15 @@ get_unit_role() {
     fi
 }
 
+# Get the IP address for this unit's gateway endpoint.
+# Uses network-get for accurate binding address (respects Juju spaces),
+# falls back to unit-get private-address if unavailable.
+get_unit_ip() {
+    local ip
+    ip=$(network-get gateway --bind-address 2>/dev/null) || ip=$(unit-get private-address)
+    echo "$ip"
+}
+
 # Get Gateway connection info from peer relation
 # Returns: gateway_unit gateway_host gateway_port gateway_token (space-separated)
 # Usage: read -r gateway_unit gateway_host gateway_port gateway_token <<< "$(get_gateway_info)"
@@ -709,7 +718,7 @@ update_config() {
         if [ "$gateway_bind" = "loopback" ]; then
             gateway_ip="127.0.0.1"
         else
-            gateway_ip=$(unit-get private-address)
+            gateway_ip=$(get_unit_ip)
         fi
         local default_origin
         default_origin="http://${gateway_ip}:${gateway_port}"

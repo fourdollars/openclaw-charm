@@ -18,7 +18,7 @@ if [ "$ROLE" = "gateway" ]; then
         if [ "$bind" = "loopback" ]; then
             ip="127.0.0.1"
         else
-            ip=$(unit-get private-address)
+            ip=$(get_unit_ip)
         fi
         
         url="http://${ip}:${port}"

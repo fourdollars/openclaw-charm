@@ -12,7 +12,7 @@ if [ "$ROLE" = "gateway" ]; then
     port="$(config-get gateway-port)"
     
     # For Node connections, always use private-address even if bind is loopback
-    gateway_host=$(unit-get private-address)
+    gateway_host=$(get_unit_ip)
     
     gateway_token=$(jq -r '.gateway.auth.token // empty' /home/ubuntu/.openclaw/openclaw.json 2>/dev/null || echo '')
     
