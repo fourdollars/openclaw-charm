@@ -78,10 +78,18 @@ get_unit_role() {
 
 # Get the IP address for this unit's gateway endpoint.
 # Uses network-get for accurate binding address (respects Juju spaces),
-# falls back to unit-get private-address if unavailable.
+# falls back to unit-get public-address (shown in juju status),
+# then unit-get private-address as last resort.
 get_unit_ip() {
     local ip
-    ip=$(network-get gateway --bind-address 2>/dev/null) || ip=$(unit-get private-address)
+    ip=$(network-get gateway --bind-address 2>/dev/null)
+    # Prefer public-address if network-get returns the same stale value as private-address
+    local public_addr private_addr
+    public_addr=$(unit-get public-address 2>/dev/null || echo "")
+    private_addr=$(unit-get private-address 2>/dev/null || echo "")
+    if [ -z "$ip" ] || [ "$ip" = "$private_addr" ]; then
+        ip="${public_addr:-$private_addr}"
+    fi
     echo "$ip"
 }
 
