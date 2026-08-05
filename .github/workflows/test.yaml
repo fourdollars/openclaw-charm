@@ -1100,6 +1100,16 @@ jobs:
             exit 1
           fi
           
+          # Verify plugins.entries.browser.enabled is true (required for the
+          # `openclaw browser` CLI command to be registered)
+          plugin_enabled=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq -r '.plugins.entries.browser.enabled')
+          if [ "$plugin_enabled" = "true" ]; then
+            echo "✓ plugins.entries.browser.enabled is true"
+          else
+            echo "✗ plugins.entries.browser.enabled is not true (got: $plugin_enabled)"
+            exit 1
+          fi
+          
           echo "✓ All browser settings verified"
       
       - name: Test browser start and status
@@ -1162,6 +1172,15 @@ jobs:
             exit 1
           fi
           
+          # Verify plugins.entries.browser is also removed when install-pkgs is empty
+          plugin_entry=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq '.plugins.entries.browser')
+          if [ "$plugin_entry" = "null" ]; then
+            echo "✓ plugins.entries.browser is null when install-pkgs is empty"
+          else
+            echo "✗ plugins.entries.browser is not null (got: $plugin_entry)"
+            exit 1
+          fi
+          
           # Verify browser status shows it's stopped or not running
           browser_status_disabled=$(juju ssh openclaw/0 'sudo -u ubuntu bash -l -c ". ~/.nvm/nvm.sh && nvm use 24 && openclaw browser status"' 2>&1 || echo "NOT_RUNNING")
           echo "Browser status after disable: $browser_status_disabled"
@@ -1188,6 +1207,15 @@ jobs:
             echo "✓ browser.enabled is true after re-enabling"
           else
             echo "✗ browser.enabled is not true (got: $enabled)"
+            exit 1
+          fi
+          
+          # Verify plugins.entries.browser.enabled is true again
+          plugin_enabled=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq -r '.plugins.entries.browser.enabled')
+          if [ "$plugin_enabled" = "true" ]; then
+            echo "✓ plugins.entries.browser.enabled is true after re-enabling"
+          else
+            echo "✗ plugins.entries.browser.enabled is not true (got: $plugin_enabled)"
             exit 1
           fi
           
@@ -1289,6 +1317,14 @@ jobs:
             echo "✓ browser.defaultProfile='openclaw' persisted after restart"
           else
             echo "✗ browser.defaultProfile incorrect after restart (got: $profile_after)"
+            exit 1
+          fi
+          
+          plugin_enabled_after=$(juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/openclaw.json' | jq -r '.plugins.entries.browser.enabled')
+          if [ "$plugin_enabled_after" = "true" ]; then
+            echo "✓ plugins.entries.browser.enabled=true persisted after restart"
+          else
+            echo "✗ plugins.entries.browser.enabled not true after restart (got: $plugin_enabled_after)"
             exit 1
           fi
           

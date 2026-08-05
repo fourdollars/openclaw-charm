@@ -765,10 +765,14 @@ update_config() {
     fi
 
     if [ "$has_browser" = true ]; then
-        jq '.browser = {enabled: true, headless: true, defaultProfile: "openclaw"}' \
+        # A root `browser` block only auto-activates the bundled browser plugin
+        # under a restrictive plugins.allow allowlist. Explicitly enable the
+        # plugin entry too, so `openclaw browser ...` is always available.
+        jq '.browser = {enabled: true, headless: true, defaultProfile: "openclaw"}
+           | .plugins.entries.browser.enabled = true' \
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     else
-        jq 'del(.browser)' \
+        jq 'del(.browser) | del(.plugins.entries.browser)' \
            "$temp_file" > "${temp_file}.2" && mv "${temp_file}.2" "$temp_file"
     fi
     
