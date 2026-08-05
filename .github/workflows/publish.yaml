@@ -16,6 +16,11 @@ on:
           - beta
           - candidate
           - stable
+      revision:
+        description: 'CharmHub revision to release (optional)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   publish:
@@ -26,6 +31,16 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Determine publish mode
+        id: publish_mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.revision }}" ]; then
+            echo "build=false" >> $GITHUB_OUTPUT
+            echo "Manual revision publish requested; skipping build and upload."
+          else
+            echo "build=true" >> $GITHUB_OUTPUT
+          fi
       
       - name: Install Charmcraft
         run: |
@@ -48,10 +63,12 @@ jobs:
           echo "Building version ${{ steps.get_version.outputs.version }}"
       
       - name: Pack charm
+        if: steps.publish_mode.outputs.build == 'true'
         run: |
           charmcraft pack --verbose --destructive-mode
       
       - name: Upload charm artifact
+        if: steps.publish_mode.outputs.build == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: openclaw-charm
@@ -59,6 +76,7 @@ jobs:
           retention-days: 30
       
       - name: Upload charm to CharmHub
+        if: steps.publish_mode.outputs.build == 'true'
         env:
           CHARMCRAFT_AUTH: ${{ secrets.CHARMCRAFT_TOKEN }}
         run: |
@@ -71,6 +89,19 @@ jobs:
           REVISION=$(jq -r '.revision' upload-result.json)
           echo "revision=$REVISION" >> $GITHUB_ENV
           echo "Uploaded as revision $REVISION"
+
+      - name: Determine revision to release
+        id: release_revision
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.revision }}" ]; then
+            RELEASE_REVISION="${{ github.event.inputs.revision }}"
+            echo "Using requested revision $RELEASE_REVISION"
+          else
+            RELEASE_REVISION="${{ env.revision }}"
+            echo "Using uploaded revision $RELEASE_REVISION"
+          fi
+
+          echo "revision=$RELEASE_REVISION" >> $GITHUB_OUTPUT
       
       - name: Determine target channel
         id: channel
@@ -95,10 +126,11 @@ jobs:
           CHARMCRAFT_AUTH: ${{ secrets.CHARMCRAFT_TOKEN }}
         run: |
           CHANNEL="${{ steps.channel.outputs.channel }}"
-          echo "Releasing revision ${{ env.revision }} to $CHANNEL channel..."
+          REVISION="${{ steps.release_revision.outputs.revision }}"
+          echo "Releasing revision $REVISION to $CHANNEL channel..."
           
           charmcraft release openclaw \
-            --revision=${{ env.revision }} \
+            --revision=$REVISION \
             --channel=$CHANNEL
           
           echo "✓ Successfully released to $CHANNEL channel"
@@ -147,7 +179,7 @@ jobs:
         run: |
           echo "🎉 Charm successfully published!"
           echo "Channel: ${{ steps.channel.outputs.channel }}"
-          echo "Revision: ${{ env.revision }}"
+          echo "Revision: ${{ steps.release_revision.outputs.revision }}"
           echo "Version: ${{ steps.get_version.outputs.version }}"
           echo ""
           echo "Install with: juju deploy openclaw --channel=${{ steps.channel.outputs.channel }}"
