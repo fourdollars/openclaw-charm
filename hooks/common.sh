@@ -900,53 +900,28 @@ update_config() {
     local agent_dir="/home/ubuntu/.openclaw/agents/main/agent"
     local session_dir="/home/ubuntu/.openclaw/agents/main/sessions"
     mkdir -p "$agent_dir" "$session_dir"
+    chown -R ubuntu:ubuntu "$agent_dir" "$session_dir"
 
-    local auth_file="$agent_dir/auth-profiles.json"
-    local auth_temp="${auth_file}.tmp"
-    
-    echo '{"version": 1, "profiles": {}}' > "$auth_temp"
-    
+    # Newer OpenClaw releases persist auth profiles in the agent's sqlite
+    # store (agent/openclaw-agent.sqlite) rather than agent/auth-profiles.json,
+    # and only expose that store through the `openclaw models auth` CLI.
+    # Feed the key over stdin (never as a CLI argument) so it never appears
+    # in `ps` output or shell history.
     if [ -n "$api_key" ] && [ -n "$ai_provider" ]; then
-        local profile_id="${ai_provider}:manual"
-        log_info "Configuring primary auth profile for provider: $ai_provider"
-        
-        jq --arg id "$profile_id" \
-           --arg provider "$ai_provider" \
-           --arg token "$api_key" \
-           '.profiles[$id] = {type: "token", provider: $provider, token: $token}' \
-           "$auth_temp" > "${auth_temp}.2" && mv "${auth_temp}.2" "$auth_temp"
+        configure_model_auth_profile "$ai_provider" "${ai_provider}:manual" "$api_key"
     fi
-    
+
     for i in 0 1 2 3 4 5 6 7 8 9; do
         local slot_provider slot_model slot_api_key
         slot_provider="$(config-get "ai${i}-provider")"
         slot_model="$(config-get "ai${i}-model")"
         slot_api_key="$(config-get "ai${i}-api-key")"
-        
+
         if [ -n "$slot_provider" ] && [ -n "$slot_model" ] && [ -n "$slot_api_key" ]; then
-            local slot_profile_id="${slot_provider}:slot${i}"
             log_info "Configuring auth profile for slot $i: $slot_provider/$slot_model"
-            
-            jq --arg id "$slot_profile_id" \
-               --arg provider "$slot_provider" \
-               --arg token "$slot_api_key" \
-               '.profiles[$id] = {type: "token", provider: $provider, token: $token}' \
-               "$auth_temp" > "${auth_temp}.2" && mv "${auth_temp}.2" "$auth_temp"
+            configure_model_auth_profile "$slot_provider" "${slot_provider}:slot${i}" "$slot_api_key"
         fi
     done
-    
-    if [ -s "$auth_temp" ]; then
-        local profile_count
-        profile_count=$(jq '.profiles | length' "$auth_temp")
-        if [ "$profile_count" -gt 0 ]; then
-            mv "$auth_temp" "$auth_file"
-            chown ubuntu:ubuntu "$auth_file"
-            chmod 600 "$auth_file"
-            log_info "Auth profile created at $auth_file with $profile_count profile(s)"
-        else
-            rm -f "$auth_temp"
-        fi
-    fi
 
     # Set proper ownership and permissions for all OpenClaw directories
     chown -R ubuntu:ubuntu /home/ubuntu/.openclaw
@@ -1551,6 +1526,39 @@ update_openclaw_symlink() {
             log_warn "Unknown install method: $install_method"
             ;;
     esac
+}
+
+# Run an `openclaw` CLI subcommand as the ubuntu user with nvm/bun on PATH.
+# Any stdin piped into this function is forwarded unchanged to the CLI, so
+# secrets can be passed via stdin instead of argv.
+run_openclaw_cli() {
+    sudo -u ubuntu bash -l -c '
+        export NVM_DIR="/home/ubuntu/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+        export BUN_INSTALL="/home/ubuntu/.bun"
+        [ -d "$BUN_INSTALL/bin" ] && export PATH="$BUN_INSTALL/bin:$PATH"
+        exec openclaw "$@"
+    ' _ "$@"
+}
+
+# Store an API key in OpenClaw's model auth store for the given provider.
+# Newer OpenClaw releases (2026.x+) persist auth profiles in
+# agents/main/agent/openclaw-agent.sqlite and only expose writes to that
+# store through `openclaw models auth paste-api-key`; hand-writing
+# auth-profiles.json is no longer supported. The key is piped over stdin so
+# it never appears in argv/`ps` output.
+configure_model_auth_profile() {
+    local provider="$1" profile_id="$2" key="$3"
+
+    if [ -z "$provider" ] || [ -z "$key" ]; then
+        return 0
+    fi
+
+    log_info "Configuring auth profile '$profile_id' for provider: $provider"
+    if ! printf '%s' "$key" | run_openclaw_cli models auth paste-api-key \
+        --provider "$provider" --profile-id "$profile_id" >/dev/null 2>&1; then
+        log_warn "Failed to configure auth profile '$profile_id' for provider $provider via 'openclaw models auth paste-api-key'"
+    fi
 }
 
 get_latest_openclaw_version() {

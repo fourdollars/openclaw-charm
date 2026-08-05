@@ -106,7 +106,7 @@ options:
       - vercel-ai-gateway: Vercel AI Gateway API key
       Not required for: ollama (local), bedrock (AWS credentials), openai-codex (OAuth)
       
-      Note: API keys are stored securely in auth-profiles.json, not in environment variables.
+      Note: API keys are stored securely in OpenClaw's sqlite auth store (agent/openclaw-agent.sqlite), not in environment variables.
   
   ai-base-url:
     type: string

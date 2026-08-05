@@ -599,8 +599,9 @@ juju config openclaw \
 
 **Verify configuration:**
 ```bash
-# Check all configured models
-juju ssh openclaw/0 'cat /home/ubuntu/.openclaw/agents/main/agent/auth-profiles.json | jq .'
+# Check all configured auth profiles (OpenClaw 2026.x+ stores these in a
+# sqlite auth store, not auth-profiles.json)
+juju ssh openclaw/0 'openclaw models auth list'
 ```
 
 **Important Note:** Existing chat sessions retain their original model configuration even after you change the charm config. To use the new model:
@@ -663,7 +664,7 @@ juju ssh openclaw/0 'sudo journalctl -u openclaw.service -n 50 | grep -i "error\
 
 If you see:
 ```
-Error: No API key found for provider "google". Auth store: ~/.openclaw/agents/main/agent/auth-profiles.json
+Error: No API key found for provider "google". Auth store: ~/.openclaw/agents/main/agent/openclaw-agent.sqlite
 ```
 
 **This means the AI provider authentication is not configured properly.**
@@ -677,28 +678,14 @@ The charm should automatically configure this during deployment. If it's missing
 API_KEY=$(juju config openclaw ai-api-key)
 PROVIDER=$(juju config openclaw ai-provider)
 
-# SSH into the unit and configure auth
+# SSH into the unit
 juju ssh openclaw/0
 
-# Create auth profile directory
-mkdir -p ~/.openclaw/agents/main/agent
-
-# Create auth-profiles.json
-cat > ~/.openclaw/agents/main/agent/auth-profiles.json <<EOF
-{
-  "version": 1,
-  "profiles": {
-    "${PROVIDER}:manual": {
-      "type": "api_key",
-      "provider": "${PROVIDER}",
-      "key": "${API_KEY}"
-    }
-  }
-}
-EOF
-
-# Set proper permissions
-chmod 600 ~/.openclaw/agents/main/agent/auth-profiles.json
+# OpenClaw 2026.x+ stores auth profiles in a sqlite database
+# (agents/main/agent/openclaw-agent.sqlite) and only exposes writes to it
+# through the CLI - hand-writing auth-profiles.json no longer works.
+# Pipe the key via stdin so it never appears in shell history or `ps`.
+echo "$API_KEY" | openclaw models auth paste-api-key --provider "$PROVIDER" --profile-id "${PROVIDER}:manual"
 
 # Restart service
 sudo systemctl restart openclaw.service
@@ -707,7 +694,7 @@ sudo systemctl restart openclaw.service
 sudo journalctl -u openclaw.service -f
 ```
 
-**Note:** This issue occurs in OpenClaw 2026.x which changed authentication from environment variables to auth-profiles.json. The charm has been updated to handle this automatically for new deployments.
+**Note:** This issue occurs in OpenClaw 2026.x, which changed authentication from environment variables to auth profiles, and later moved the auth profile store from `agent/auth-profiles.json` to a sqlite database (`agent/openclaw-agent.sqlite`) managed exclusively via `openclaw models auth ...` commands. The charm has been updated to handle this automatically for new deployments.
 
 ---
 
