@@ -111,7 +111,7 @@ ExecStart=/usr/bin/env openclaw node run --host ${gateway_host} --port ${gateway
 ### Deploy with Multiple Units
 ```bash
 # Deploy with 3 units
-juju deploy openclaw --channel edge -n 3 \
+juju deploy openclaw -n 3 \
   --config ai-provider="anthropic" \
   --config ai-api-key="sk-ant-xxx" \
   --config ai-model="claude-opus-4-5"
@@ -224,7 +224,7 @@ juju ssh openclaw/1 'journalctl -u openclaw-node.service -f'
 ### Manual Testing
 ```bash
 # 1. Deploy with multiple units
-juju deploy openclaw --channel edge -n 3 --config <your-config>
+juju deploy openclaw -n 3 --config <your-config>
 
 # 2. Wait for deployment
 juju status --watch 1s

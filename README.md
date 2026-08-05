@@ -1,4 +1,4 @@
-# OpenClaw Juju Charm (edge)
+# OpenClaw Juju Charm
 
 [![Charm Tests](https://github.com/fourdollars/openclaw-charm/actions/workflows/test.yaml/badge.svg)](https://github.com/fourdollars/openclaw-charm/actions/workflows/test.yaml)
 [![CharmHub](https://charmhub.io/openclaw/badge.svg)](https://charmhub.io/openclaw)
@@ -37,7 +37,7 @@
 
 ```bash
 # Deploy OpenClaw
-juju deploy openclaw --channel edge
+juju deploy openclaw
 
 # Configure with your AI provider
 juju config openclaw \
@@ -512,7 +512,7 @@ OpenClaw charm supports horizontal scaling with automatic Gateway-Node architect
 
 ```bash
 # Deploy with 3 units (IMPORTANT: set gateway-bind=lan for multi-unit)
-juju deploy openclaw --channel edge -n 3 \
+juju deploy openclaw -n 3 \
   --config gateway-bind=lan \
   --config ai-provider="anthropic" \
   --config ai-api-key="sk-ant-xxx" \
@@ -587,11 +587,11 @@ Deploy multiple independent OpenClaw instances (separate applications):
 ```bash
 # Production instance
 juju deploy openclaw openclaw-prod \
-  --config gateway-port=18789 --channel edge
+  --config gateway-port=18789
 
 # Development instance
 juju deploy openclaw openclaw-dev \
-  --config gateway-port=18790 --channel edge
+  --config gateway-port=18790
 ```
 
 ### Custom Installation
@@ -803,7 +803,7 @@ juju ssh openclaw/1 'cat /home/ubuntu/.openclaw/node.json'
 # Should show: "displayName": "openclaw/1"
 
 # If not, upgrade charm
-juju refresh openclaw --channel edge
+juju refresh openclaw
 
 # Or regenerate config
 juju config openclaw log-level=debug  # Triggers config-changed

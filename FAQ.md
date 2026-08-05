@@ -877,7 +877,7 @@ Yes! The OpenClaw charm supports horizontal scaling with automatic Gateway-Node 
 
 ```bash
 # Deploy with 3 units
-juju deploy openclaw --channel edge -n 3
+juju deploy openclaw -n 3
 
 # Wait for units to be ready
 juju status --watch 1s
@@ -960,11 +960,11 @@ Yes! Deploy multiple independent applications with different configurations:
 ```bash
 # Production instance
 juju deploy openclaw openclaw-prod \
-  --config gateway-port=18789 --channel edge
+  --config gateway-port=18789
 
 # Development instance  
 juju deploy openclaw openclaw-dev \
-  --config gateway-port=18790 --channel edge
+  --config gateway-port=18790
 ```
 
 Each instance has its own isolated configuration and workspace.

@@ -131,7 +131,7 @@ When scaled to multiple units, the charm automatically adopts a distributed arch
 **Example deployment**:
 ```bash
 # Deploy with 3 units
-juju deploy openclaw --channel edge -n 3
+juju deploy openclaw -n 3
 
 # Result:
 # - openclaw/0: Gateway (leader) - handles messaging and AI
@@ -173,7 +173,7 @@ openclaw-charm/
 
 **Single Unit Deployment:**
 ```
-User runs: juju deploy openclaw --channel edge --config ai-key="xxx"
+User runs: juju deploy openclaw --config ai-key="xxx"
            ↓
 1. Install Hook
    • Installs Node.js 22+
@@ -211,7 +211,7 @@ User runs: juju deploy openclaw --channel edge --config ai-key="xxx"
 
 **Multi-Unit Deployment:**
 ```
-User runs: juju deploy openclaw --channel edge -n 3 --config ai-key="xxx"
+User runs: juju deploy openclaw -n 3 --config ai-key="xxx"
            ↓
 Unit 0 (LEADER):
    • Follows Gateway deployment flow above
@@ -246,14 +246,14 @@ Units 1, 2 (NON-LEADERS):
 
 ### Basic Deployment
 ```bash
-juju deploy openclaw --channel edge \
+juju deploy openclaw \
   --config anthropic-api-key="sk-ant-xxx" \
   --config ai-model="claude-opus-4-5"
 ```
 
 ### With Telegram Integration
 ```bash
-juju deploy openclaw --channel edge \
+juju deploy openclaw \
   --config anthropic-api-key="sk-ant-xxx" \
   --config enable-telegram=true \
   --config telegram-bot-token="123456:ABC"
@@ -261,7 +261,7 @@ juju deploy openclaw --channel edge \
 
 ### From Source (Development)
 ```bash
-juju deploy openclaw --channel edge \
+juju deploy openclaw \
   --config install-method="source" \
   --config openclaw-version="main" \
   --config anthropic-api-key="sk-ant-xxx"
@@ -269,7 +269,7 @@ juju deploy openclaw --channel edge \
 
 ### High Security Configuration
 ```bash
-juju deploy openclaw --channel edge \
+juju deploy openclaw \
   --config anthropic-api-key="sk-ant-xxx" \
   --config dm-policy="pairing" \
   --config sandbox-mode="all" \

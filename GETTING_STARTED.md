@@ -173,7 +173,7 @@ Share this with your users:
 ### Installation
 
 ```bash
-juju deploy openclaw --channel edge --config anthropic-api-key="your-key-here"
+juju deploy openclaw --config anthropic-api-key="your-key-here"
 ```
 
 ### Configuration
