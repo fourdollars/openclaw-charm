@@ -78,3 +78,8 @@ upgrade:
       description: |
         Skip the scheduled reboot after the upgrade. Useful when only
         reinstalling OpenClaw without needing a full system reboot.
+
+doctor-fix:
+  description: |
+    Stop the Gateway, run 'openclaw doctor --fix' (e.g. to migrate agent
+    databases after an upgrade), then restart the Gateway.

@@ -1,0 +1,14 @@
+#!/bin/bash
+set -e
+
+CHARM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+source "$CHARM_DIR/hooks/common.sh"
+
+if restart_openclaw; then
+    rm -f /home/ubuntu/.openclaw/.charm-doctor-fix-attempted
+    action-set result="doctor --fix completed and gateway restarted"
+else
+    action-fail "Gateway failed to start after doctor --fix; check journalctl --user -u openclaw-gateway"
+    exit 1
+fi

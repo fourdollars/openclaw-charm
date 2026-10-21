@@ -1209,9 +1209,28 @@ stop_openclaw() {
     run_systemctl_user stop openclaw-gateway.service || true
 }
 
+# Migrate agent databases/config; must run while the gateway is stopped.
+run_openclaw_doctor_fix() {
+    log_info "Running openclaw doctor --fix"
+    sudo -u ubuntu bash -l -c "openclaw doctor --fix --non-interactive" 2>&1 || {
+        log_warn "openclaw doctor --fix reported errors"
+        return 1
+    }
+}
+
+# Returns 0 if the gateway failed because agent DBs need migration.
+gateway_needs_doctor_fix() {
+    run_systemctl_user show openclaw-gateway.service -p ActiveState --value 2>/dev/null | grep -q '^failed' || return 1
+    sudo -u ubuntu bash -c 'XDG_RUNTIME_DIR=/run/user/$(id -u) journalctl --user -u openclaw-gateway -n 60 --no-pager 2>/dev/null' \
+        | grep -qE 'openclaw doctor --fix|schema version'
+}
+
 restart_openclaw() {
     log_info "Restarting OpenClaw Gateway service"
     run_systemctl_user daemon-reload
+    run_systemctl_user stop openclaw-gateway.service || true
+    run_openclaw_doctor_fix || true
+    run_systemctl_user reset-failed openclaw-gateway.service 2>/dev/null || true
     run_systemctl_user restart openclaw-gateway.service
     
     sleep 5

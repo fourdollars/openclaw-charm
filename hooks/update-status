@@ -48,6 +48,19 @@ if [ "$ROLE" = "gateway" ]; then
         else
             status-set blocked "Gateway running but configuration incomplete"
         fi
+    elif gateway_needs_doctor_fix; then
+        # Self-heal once per failure; the marker prevents a restart loop
+        marker=/home/ubuntu/.openclaw/.charm-doctor-fix-attempted
+        if [ ! -f "$marker" ]; then
+            touch "$marker"
+            log_info "Gateway failed due to pending migration - running doctor --fix"
+            if restart_openclaw; then
+                rm -f "$marker"
+                status-set active "Gateway: $url"
+                exit 0
+            fi
+        fi
+        status-set blocked "Gateway failed: DB migration needed (run action doctor-fix)"
     else
         status-set blocked "Gateway service not running"
     fi
