@@ -240,10 +240,23 @@ if [ "$ROLE" = "gateway" ]; then
             fi
         done
         
-        # If still not active after waiting, check if it's expected to be running
+        # If still not active after waiting, check if it needs self-healing or is expected to start
         if ! run_systemctl_user is-active --quiet openclaw-gateway.service; then
-            # Check if service is enabled (should start eventually)
-            if run_systemctl_user is-enabled --quiet openclaw-gateway.service 2>/dev/null; then
+            if gateway_needs_doctor_fix || gateway_needs_temp_ancestor_fix; then
+                log_info "Gateway failed and needs recovery - repairing and starting"
+                if restart_openclaw; then
+                    bind="$(config-get gateway-bind)"
+                    if [ "$bind" = "loopback" ]; then
+                        ip="127.0.0.1"
+                    else
+                        ip=$(get_unit_ip)
+                    fi
+                    status-set active "Gateway: http://${ip}:${NEW_PORT}"
+                else
+                    status-set blocked "Failed to recover Gateway after config change"
+                    exit 1
+                fi
+            elif run_systemctl_user is-enabled --quiet openclaw-gateway.service 2>/dev/null; then
                 log_info "Gateway service enabled but not yet active - showing URL anyway"
                 bind="$(config-get gateway-bind)"
                 if [ "$bind" = "loopback" ]; then

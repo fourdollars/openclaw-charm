@@ -53,6 +53,7 @@ esac
 log_info "Creating OpenClaw directories"
 mkdir -p /home/ubuntu/.openclaw/{credentials,workspace}
 chown -R ubuntu:ubuntu /home/ubuntu/.openclaw
+ensure_safe_temp_ancestors
 
 # Install OpenClaw based on configured method
 OPENCLAW_VERSION="$(config-get version)"

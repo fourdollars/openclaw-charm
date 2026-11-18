@@ -9,6 +9,8 @@ log_info "Upgrading charm"
 
 status-set maintenance "Upgrading charm"
 
+ensure_safe_temp_ancestors
+
 INSTALL_METHOD="$(config-get install-method)"
 
 if [ ! -d "/home/ubuntu/.nvm" ] && [ "$INSTALL_METHOD" != "bun" ]; then
@@ -167,8 +169,25 @@ if [ "$ROLE" = "gateway" ]; then
             exit 1
         fi
     else
-        log_info "Gateway service not running - deferring start to start hook"
-        status-set maintenance "Upgrade complete, waiting for start hook"
+        if gateway_needs_doctor_fix || gateway_needs_temp_ancestor_fix; then
+            log_info "Gateway was in failed state and needs recovery - repairing and starting"
+            if restart_openclaw; then
+                port="$(config-get gateway-port)"
+                ip=$(get_unit_ip)
+                url="http://${ip}:${port}"
+                if validate_config; then
+                    status-set active "Gateway: $url (upgraded)"
+                else
+                    status-set blocked "OpenClaw running but configuration incomplete (missing API keys)"
+                fi
+            else
+                status-set blocked "Failed to recover Gateway after upgrade"
+                exit 1
+            fi
+        else
+            log_info "Gateway service not running - deferring start to start hook"
+            status-set maintenance "Upgrade complete, waiting for start hook"
+        fi
     fi
 else
     # Node unit - remove openclaw.json if it exists (should only have node.json)

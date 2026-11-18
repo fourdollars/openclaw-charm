@@ -551,6 +551,24 @@ ensure_pkgs_installed() {
     done
 }
 
+# Ensure OpenClaw temp workspace ancestors (~/.cache, ~/.openclaw, ~/.openclaw/tmp)
+# are owned by ubuntu and not group/world-writable without a sticky bit.
+# Ubuntu's default umask 0002 creates 0775 directories, which OpenClaw >= 2026.11.4
+# refuses as unsafe temp ancestors.
+ensure_safe_temp_ancestors() {
+    local dir
+    for dir in /home/ubuntu/.cache /home/ubuntu/.openclaw /home/ubuntu/.openclaw/tmp; do
+        mkdir -p "$dir"
+        chown ubuntu:ubuntu "$dir"
+        chmod go-w "$dir"
+    done
+    chmod 700 /home/ubuntu/.openclaw /home/ubuntu/.openclaw/tmp
+    if [ -d /home/ubuntu/.cache/openclaw ]; then
+        chown ubuntu:ubuntu /home/ubuntu/.cache/openclaw
+        chmod 700 /home/ubuntu/.cache/openclaw
+    fi
+}
+
 # Ensure environment file exists (required by systemd service)
 ensure_environment_file() {
     local env_file="/home/ubuntu/.openclaw/environment"
@@ -559,8 +577,8 @@ ensure_environment_file() {
     gateway_port="$(config-get gateway-port)"
     gateway_bind="$(config-get gateway-bind)"
     
-    # Create .openclaw directory if it doesn't exist
-    mkdir -p /home/ubuntu/.openclaw
+    # Ensure .openclaw and temp ancestor directories exist with safe permissions
+    ensure_safe_temp_ancestors
     
     # Create environment file
     cat > "$env_file" <<EOF
@@ -1058,6 +1076,7 @@ SyslogIdentifier=openclaw-gateway
 
 NoNewPrivileges=true
 PrivateTmp=true
+UMask=0022
 
 LimitNOFILE=65535
 LimitNPROC=4096
@@ -1123,6 +1142,7 @@ SyslogIdentifier=openclaw-node
 
 NoNewPrivileges=true
 PrivateTmp=true
+UMask=0022
 
 LimitNOFILE=65535
 LimitNPROC=4096
@@ -1186,15 +1206,58 @@ EOF
     log_info "Gateway token set in systemd drop-in: $override_file"
 }
 
+# Wait for openclaw-gateway.service to either bind its port or fail.
+# Gives OpenClaw enough time (~60s) to complete pre-flight DB/schema admission
+# checks (which can take ~25-30s before exiting 78 on schema mismatch) instead
+# of returning a false positive after 5 seconds.
+wait_for_gateway_ready() {
+    local port max_wait elapsed active_state sub_state restarts
+    port="$(config-get gateway-port 2>/dev/null || echo 18789)"
+    max_wait="${1:-60}"
+    elapsed=0
+
+    while [ "$elapsed" -lt "$max_wait" ]; do
+        active_state=$(run_systemctl_user show openclaw-gateway.service -p ActiveState --value 2>/dev/null || echo "failed")
+        sub_state=$(run_systemctl_user show openclaw-gateway.service -p SubState --value 2>/dev/null || echo "")
+
+        if [ "$active_state" = "failed" ] || [ "$active_state" = "inactive" ]; then
+            log_error "OpenClaw Gateway service entered state '${active_state}' (${sub_state}) after ${elapsed}s"
+            return 1
+        fi
+
+        if [ "$active_state" = "active" ] && [ "$sub_state" = "running" ]; then
+            if ss -ltn 2>/dev/null | grep -qE "[:.]${port}[[:space:]]"; then
+                log_info "OpenClaw Gateway listening on port ${port} after ${elapsed}s"
+                return 0
+            fi
+        fi
+
+        sleep 2
+        elapsed=$((elapsed + 2))
+    done
+
+    active_state=$(run_systemctl_user show openclaw-gateway.service -p ActiveState --value 2>/dev/null || echo "failed")
+    sub_state=$(run_systemctl_user show openclaw-gateway.service -p SubState --value 2>/dev/null || echo "")
+    restarts=$(run_systemctl_user show openclaw-gateway.service -p NRestarts --value 2>/dev/null || echo "0")
+
+    if [ "$active_state" = "active" ] && [ "$sub_state" = "running" ] && [ "${restarts:-0}" = "0" ]; then
+        log_warn "OpenClaw Gateway service active after ${max_wait}s (port ${port} not yet listening)"
+        return 0
+    fi
+
+    log_error "OpenClaw Gateway service failed to stabilize within ${max_wait}s (state: ${active_state}/${sub_state}, restarts: ${restarts})"
+    return 1
+}
+
 start_openclaw() {
     log_info "Starting OpenClaw Gateway service"
+    ensure_safe_temp_ancestors
     run_systemctl_user daemon-reload
     run_systemctl_user enable openclaw-gateway.service
+    run_systemctl_user reset-failed openclaw-gateway.service 2>/dev/null || true
     run_systemctl_user start openclaw-gateway.service
     
-    sleep 5
-    
-    if run_systemctl_user is-active --quiet openclaw-gateway.service; then
+    if wait_for_gateway_ready 60; then
         log_info "OpenClaw Gateway service started successfully"
         return 0
     else
@@ -1212,7 +1275,8 @@ stop_openclaw() {
 # Migrate agent databases/config; must run while the gateway is stopped.
 run_openclaw_doctor_fix() {
     log_info "Running openclaw doctor --fix"
-    sudo -u ubuntu bash -l -c "openclaw doctor --fix --non-interactive" 2>&1 || {
+    ensure_safe_temp_ancestors
+    run_openclaw_cli doctor --fix --non-interactive 2>&1 || {
         log_warn "openclaw doctor --fix reported errors"
         return 1
     }
@@ -1221,21 +1285,36 @@ run_openclaw_doctor_fix() {
 # Returns 0 if the gateway failed because agent DBs need migration.
 gateway_needs_doctor_fix() {
     run_systemctl_user show openclaw-gateway.service -p ActiveState --value 2>/dev/null | grep -q '^failed' || return 1
-    sudo -u ubuntu bash -c 'XDG_RUNTIME_DIR=/run/user/$(id -u) journalctl --user -u openclaw-gateway -n 60 --no-pager 2>/dev/null' \
+    sudo -u ubuntu bash -c 'XDG_RUNTIME_DIR=/run/user/$(id -u) journalctl --user -u openclaw-gateway -n 200 --no-pager 2>/dev/null' \
         | grep -qE 'openclaw doctor --fix|schema version'
+}
+
+# Returns 0 if the gateway failed because a temp root ancestor has unsafe group/world write bits.
+gateway_needs_temp_ancestor_fix() {
+    run_systemctl_user show openclaw-gateway.service -p ActiveState --value 2>/dev/null | grep -q '^failed' || return 1
+    sudo -u ubuntu bash -c 'XDG_RUNTIME_DIR=/run/user/$(id -u) journalctl --user -u openclaw-gateway -n 200 --no-pager 2>/dev/null' \
+        | grep -qE 'No safe OpenClaw temp root is available|Temp workspace ancestor .* is group/world writable'
 }
 
 restart_openclaw() {
     log_info "Restarting OpenClaw Gateway service"
+    ensure_safe_temp_ancestors
     run_systemctl_user daemon-reload
     run_systemctl_user stop openclaw-gateway.service || true
     run_openclaw_doctor_fix || true
-    run_systemctl_user reset-failed openclaw-gateway.service 2>/dev/null || true
-    run_systemctl_user restart openclaw-gateway.service
+
+    # 'openclaw doctor --fix' may restart openclaw-gateway.service itself.
+    # Avoid killing and restarting it a second time mid-startup if it is already up.
+    local post_doctor_state
+    post_doctor_state=$(run_systemctl_user show openclaw-gateway.service -p ActiveState --value 2>/dev/null || echo "")
+    if [ "$post_doctor_state" = "active" ] || [ "$post_doctor_state" = "activating" ]; then
+        log_info "OpenClaw Gateway service already ${post_doctor_state} after doctor --fix"
+    else
+        run_systemctl_user reset-failed openclaw-gateway.service 2>/dev/null || true
+        run_systemctl_user start openclaw-gateway.service
+    fi
     
-    sleep 5
-    
-    if run_systemctl_user is-active --quiet openclaw-gateway.service; then
+    if wait_for_gateway_ready 60; then
         log_info "OpenClaw Gateway service restarted successfully"
         return 0
     else
@@ -1247,8 +1326,10 @@ restart_openclaw() {
 
 start_openclaw_node() {
     log_info "Starting OpenClaw Node service"
+    ensure_safe_temp_ancestors
     run_systemctl_user daemon-reload
     run_systemctl_user enable openclaw-node.service
+    run_systemctl_user reset-failed openclaw-node.service 2>/dev/null || true
     run_systemctl_user start openclaw-node.service
     
     sleep 5
@@ -1270,7 +1351,9 @@ stop_openclaw_node() {
 
 restart_openclaw_node() {
     log_info "Restarting OpenClaw Node service"
+    ensure_safe_temp_ancestors
     run_systemctl_user daemon-reload
+    run_systemctl_user reset-failed openclaw-node.service 2>/dev/null || true
     run_systemctl_user restart openclaw-node.service
     
     sleep 5
